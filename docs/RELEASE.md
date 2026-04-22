@@ -66,3 +66,9 @@ aur/my-niri-desk
 5. 提交 GitHub
 6. 上传 GitHub Release
 7. 推送 `aur/my-niri-desk` 到 AUR
+
+注意：
+
+- AUR 仓库是平铺结构
+- 不能直接把 `payload/`、`scripts/` 作为子目录推上去
+- AUR `PKGBUILD` 需要从 GitHub tag 源码包拉取这些内容

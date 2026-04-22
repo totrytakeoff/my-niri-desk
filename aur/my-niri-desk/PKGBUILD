@@ -3,7 +3,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="Opinionated niri + QuickShell desktop preset with bundled wayscrollshot"
 arch=('x86_64')
-url="https://github.com/yourname/my-niri-desk"
+url="https://github.com/totrytakeoff/my-niri-desk"
 license=('custom')
 options=('!debug')
 depends=(
@@ -62,9 +62,15 @@ makedepends=(
 )
 install="${pkgname}.install"
 source=(
+  "${pkgname}-${pkgver}.tar.gz::https://github.com/totrytakeoff/my-niri-desk/archive/refs/tags/v${pkgver}.tar.gz"
   "wayscrollshot::git+https://github.com/jswysnemc/wayscrollshot.git"
+  "${pkgname}.install"
 )
-sha256sums=('SKIP')
+sha256sums=(
+  'REPLACE_ME_TARBALL_SHA256'
+  'SKIP'
+  'REPLACE_ME_INSTALL_SHA256'
+)
 
 build() {
   cd "${srcdir}/wayscrollshot"
@@ -72,14 +78,16 @@ build() {
 }
 
 package() {
+  local project_dir="${srcdir}/${pkgname}-${pkgver}"
+
   install -dm755 "${pkgdir}/usr/bin"
   install -dm755 "${pkgdir}/usr/share/${pkgname}"
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
 
   install -m755 "${srcdir}/wayscrollshot/target/release/wayscrollshot" "${pkgdir}/usr/bin/wayscrollshot"
-  install -m755 "${startdir}/scripts/my-niri-desk-apply" "${pkgdir}/usr/bin/my-niri-desk-apply"
+  install -m755 "${project_dir}/scripts/my-niri-desk-apply" "${pkgdir}/usr/bin/my-niri-desk-apply"
 
-  cp -a "${startdir}/payload/skel" "${pkgdir}/usr/share/${pkgname}/"
+  cp -a "${project_dir}/payload/skel" "${pkgdir}/usr/share/${pkgname}/"
   find "${pkgdir}/usr/share/${pkgname}/skel" -type d -exec chmod 755 {} +
   find "${pkgdir}/usr/share/${pkgname}/skel" -type f -exec chmod 644 {} +
   find "${pkgdir}/usr/share/${pkgname}/skel/.config/niri/scripts" "${pkgdir}/usr/share/${pkgname}/skel/.config/quickshell/scripts" -type f -exec chmod 755 {} +

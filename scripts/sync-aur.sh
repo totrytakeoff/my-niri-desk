@@ -5,14 +5,15 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 aur_dir="${repo_root}/aur/my-niri-desk"
 
 mkdir -p "${aur_dir}"
-rm -rf "${aur_dir}/payload" "${aur_dir}/scripts"
-mkdir -p "${aur_dir}/scripts"
-
-cp -f "${repo_root}/PKGBUILD" "${aur_dir}/PKGBUILD"
-cp -f "${repo_root}/.SRCINFO" "${aur_dir}/.SRCINFO"
 cp -f "${repo_root}/my-niri-desk.install" "${aur_dir}/my-niri-desk.install"
-cp -a "${repo_root}/payload" "${aur_dir}/payload"
-cp -f "${repo_root}/scripts/my-niri-desk-apply" "${aur_dir}/scripts/my-niri-desk-apply"
+
+if grep -q 'REPLACE_ME_' "${aur_dir}/PKGBUILD"; then
+  echo "AUR PKGBUILD still contains placeholder checksums." >&2
+  echo "Update aur/my-niri-desk/PKGBUILD first." >&2
+  exit 1
+fi
+
+( cd "${aur_dir}" && makepkg --printsrcinfo > .SRCINFO )
 
 echo "Synced AUR view:"
 echo "  ${aur_dir}"

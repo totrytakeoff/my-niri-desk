@@ -36,4 +36,3 @@ Local AUR repository updated.
 Next:
   git push
 EOF
-
