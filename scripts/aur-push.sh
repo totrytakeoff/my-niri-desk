@@ -18,7 +18,9 @@ if [[ ! -d "${target_repo}/.git" ]]; then
 fi
 
 find "${target_repo}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-cp -a "${aur_view}/." "${target_repo}/"
+cp -f "${aur_view}/PKGBUILD" "${target_repo}/PKGBUILD"
+cp -f "${aur_view}/.SRCINFO" "${target_repo}/.SRCINFO"
+cp -f "${aur_view}/my-niri-desk.install" "${target_repo}/my-niri-desk.install"
 
 cd "${target_repo}"
 git add .
