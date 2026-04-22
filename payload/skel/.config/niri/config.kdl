@@ -1,0 +1,450 @@
+// niri 主配置
+// ---------------------------------------------------------------------------
+// 这份配置的目标是：
+// 1. 保持桌面干净、稳定、可日用；
+// 2. 以键盘操作为主，但不牺牲双屏和常用桌面能力；
+// 3. 尽量复用你原本 GNOME 下的习惯：kitty / fuzzel / waybar / mako / fcitx5。
+//
+// niri 配置是 KDL 语法，注释使用 `//`。
+// 修改后可以用下面这条命令校验：
+//   niri validate -c ~/.config/niri/config.kdl
+//
+// 常见排错思路：
+// - 如果改完不生效：先确认语法校验通过，再重载 niri 配置。
+// - 如果某条快捷键没反应：优先检查是否和别的快捷键冲突。
+// - 如果某个应用窗口规则没命中：先确认该应用真实的 app-id/title。
+
+input {
+    // 键盘输入设置。
+    keyboard {
+        xkb {
+            // 这里可以加 XKB 选项，例如：
+            // layout "us"
+            // variant "altgr-intl"
+            // options "caps:escape"
+            //
+            // 你现在已经把输入法切换交给 fcitx5，所以这里保持最小化。
+        }
+
+        // 开机/登录后默认开启小键盘。
+        numlock
+    }
+
+    // 触摸板设置。
+    touchpad {
+        // 单击触摸板 = 点击。
+        tap
+
+        // 自然滚动，和 GNOME / macOS 一样：手指向下滑，内容向上。
+        natural-scroll
+
+        // 常见可选项，先注释保留：
+        // dwt
+        //   打字时禁用触摸板，避免误触。
+        // accel-speed 0.3
+        //   调整触摸板加速度。
+        // click-method "clickfinger"
+        //   三指/两指点击手势映射。
+    }
+
+    mouse {
+        // 鼠标当前没有做专门调校，保持系统默认。
+        //
+        // 常见可选项：
+        // natural-scroll
+        // accel-speed 0.2
+    }
+}
+
+layout {
+    // 窗口间距。14 属于略宽松的桌面观感，比“极致塞满屏幕”更耐看。
+    gaps 5
+
+    // 当列太多时，尽量把当前聚焦列放在更舒服的位置。
+    center-focused-column "on-overflow"
+
+    // 预设列宽：切换列宽时会在这些比例之间轮换。
+    preset-column-widths {
+        proportion 0.38
+        proportion 0.50
+        proportion 0.62
+    }
+
+    // 默认新列宽度，0.56 对 14 寸 3K + 外接 1080p 双屏都比较均衡。
+    default-column-width { proportion 0.56; }
+
+    focus-ring {
+        // 聚焦边框宽度和颜色。保留边框但不使用传统实体 border，
+        // 能兼顾状态可见和整体简洁。
+        width 3
+        active-color "#8aa1b4"
+        inactive-color "#3c4450"
+    }
+
+    border {
+        // 关闭传统边框，避免视觉过重。
+        off
+    }
+
+    shadow {
+        // 轻阴影：目的是分离层次，而不是做“卡片感”。
+        on
+        softness 24
+        spread 2
+        offset x=0 y=4
+        color "#00000066"
+    }
+
+    // 常见可选项，先注释说明：
+    // struts {
+    //   left 0
+    //   right 0
+    //   top 0
+    //   bottom 0
+    // }
+    //   给 bar / shell 保留硬边距。
+    //
+    // tab-indicator {
+    // }
+    //   控制 tabbed 列的外观。
+}
+
+// 输出设备布局
+// ---------------------------------------------------------------------------
+// 你当前的实际显示器是：
+// - HDMI-A-1: 外接 1920x1080 显示器
+// - eDP-1:    笔记本内屏 3072x1920
+//
+// 这里强制把外接屏放左边，内屏放右边，避免 niri 按探测顺序排错。
+output "HDMI-A-1" {
+    position x=0 y=0
+
+    // 常见可选项：
+    // scale 1.0
+    // transform "normal"
+    mode "1920x1080@240"
+    // variable-refresh-rate true
+}
+
+output "eDP-1" {
+    // 右侧屏幕的 x 位置取外接屏宽度 1920。
+    position x=1920 y=0
+
+    // 常见可选项：
+    scale 2.0
+    mode "3072x1920@120"
+}
+
+// 会话启动项
+// ---------------------------------------------------------------------------
+// 这些程序在每次进入 niri 会话时启动。
+spawn-at-startup "xwayland-satellite"
+// 为 X11 程序提供 XWayland 支持；QQ / 微信 / WPS / 某些旧程序会依赖它。
+
+spawn-at-startup "fcitx5"
+// 输入法守护进程。没有它，中文输入和候选框都不会工作。
+
+// spawn-at-startup "mako"
+// 原来的通知守护进程。切到 QuickShell 后先停用，避免和它自己的通知服务器抢占。
+
+spawn-at-startup "quickshell"
+// 顶栏 / 启动器 / 锁屏 / 侧边栏现在统一交给 QuickShell。
+// QuickShell 会自动读取 ~/.config/quickshell/shell.qml。
+
+// spawn-at-startup "waybar"
+// 旧顶栏，先停用但保留注释，方便随时回退。
+
+spawn-at-startup "nm-applet" "--indicator"
+// Archirithm 这套 QuickShell 仍然通过系统托盘承载网络入口。
+
+spawn-at-startup "blueman-applet"
+// 蓝牙托盘图标也继续通过系统托盘接入 QuickShell。
+
+spawn-at-startup "awww-daemon"
+// QuickShell 的壁纸切换依赖 awww 守护进程。
+
+spawn-sh-at-startup "awww-daemon -n overview"
+// 给 overview / blur 缓存准备独立的 overview 壁纸守护进程。
+
+spawn-sh-at-startup "sleep 1; wall=$(find \"$HOME/Pictures/wallpapers\" -maxdepth 1 -type f 2>/dev/null | head -n 1); [ -n \"$wall\" ] && awww img \"$wall\" --transition-type none"
+// 登录时如果用户的 ~/Pictures/wallpapers 里有壁纸，就自动用第一张打底。
+// 这样适合打包分发，不会写死到某个特定用户的家目录或某一张私人壁纸。
+
+// spawn-at-startup "swaybg" "-i" "$HOME/.local/share/backgrounds/default.png" "-m" "fill"
+// 旧壁纸方案。改用 awww 后先停用，避免和动态壁纸切换互相覆盖。
+
+hotkey-overlay {
+    // 目前保持默认；`Super+Shift+/` 仍然会调出快捷键总览。
+}
+
+// 尽量让应用使用 Wayland 原生客户端装饰，而不是各自画一套标题栏。
+prefer-no-csd
+
+// niri 自带截图默认保存路径；你实际更常用的是下面 binds 里绑定的脚本。
+screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+
+animations {
+    // 当前不做额外动画定制，保持默认动画行为。
+    //
+    // 如果以后你觉得窗口切换太硬或太慢，可以从这里开始调。
+}
+
+gestures {
+    hot-corners {
+        // 关闭鼠标碰屏幕角/边缘触发 overview 的行为。
+        off
+    }
+
+    // 常见可选项：
+    // workspace-swipes {
+    //     off
+    // }
+    //   关闭触摸板三指/四指切工作区手势。
+}
+
+// 窗口规则
+// ---------------------------------------------------------------------------
+// 规则的写法是：匹配条件 + 动作。
+// 实战中最常见的是：
+// - open-floating true
+// - default-column-width {}
+// - geometry-corner-radius
+// - opacity 等
+
+window-rule {
+    // 示例：如果你以后重新用 wezterm，给它一个更宽松的默认列宽。
+    match app-id=r#"^org\.wezfurlong\.wezterm$"#
+    default-column-width {}
+}
+
+window-rule {
+    // Firefox 画中画窗口始终浮动，避免打乱平铺布局。
+    match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    open-floating true
+}
+
+window-rule {
+    // 一些更适合浮动的小工具窗口。
+    match app-id=r#"^(com\.github\.wwmm\.pulseeffects|org\.pulseaudio\.pavucontrol|nm-connection-editor|org\.gnome\.Settings|org\.gnome\.FileRoller|com\.gabm\.satty)$"#
+    open-floating true
+}
+
+window-rule {
+    // satty 截图标注工具需要浮动，方便编辑。
+    match app-id=r#"^com\.gabm\.satty$"#
+    open-floating true
+}
+
+window-rule {
+    // 全局圆角和几何裁切。
+    // 这一条会作用于大多数窗口，让整体风格统一。
+    geometry-corner-radius 10
+    clip-to-geometry true
+}
+
+layer-rule {
+    match namespace="awww-daemonoverview"
+    place-within-backdrop true
+}
+// 这一条是 awww 双守护进程方案的关键：
+// - 普通 awww-daemon 负责正常桌面的清晰壁纸
+// - `awww-daemon -n overview` 负责 overview 专用的模糊壁纸
+// `place-within-backdrop true` 会把 overview 这层只放进 niri 的 backdrop，
+// 正常桌面不会再常驻显示模糊图。
+
+// 常见但目前没写的规则例子：
+// window-rule {
+//     match app-id=r#"^QQ$"#
+//     open-floating true
+// }
+//   适合登录框、启动页、悬浮工具窗口。
+//
+// window-rule {
+//     match app-id=r#"^code$"#
+//     default-column-width { proportion 0.62; }
+// }
+//   让 VS Code 默认更宽。
+
+binds {
+    // 热键总览。
+    Mod+Shift+Slash { show-hotkey-overlay; }
+
+    // 应用启动
+    // -----------------------------------------------------------------------
+    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn "kitty"; }
+    Ctrl+Alt+T { spawn "kitty"; }
+    // 同时保留 Super+T 和你原来 GNOME 习惯里的 Ctrl+Alt+T。
+
+    Mod+D hotkey-overlay-title="Toggle Launcher: quickshell" { spawn "quickshell" "ipc" "call" "launcher" "toggle"; }
+    Alt+Space { spawn "quickshell" "ipc" "call" "launcher" "toggle"; }
+    // QuickShell 自带 Launcher；这里把原来的 fuzzel 入口切过去。
+
+    Mod+Shift+T { spawn "quickshell" "ipc" "call" "island" "tools"; }
+    // 参考仓库原键位：打开 / 关闭灵动岛 tools 面板。
+
+    Mod+Shift+W { spawn "quickshell" "ipc" "call" "island" "hub"; }
+    // 参考仓库原键位：打开 / 关闭灵动岛 hub / dashboard 面板。
+
+    Super+Alt+L hotkey-overlay-title="Lock the Screen: quickshell" { spawn "quickshell" "ipc" "call" "lock" "open"; }
+    // QuickShell 自带锁屏模块；现在直接调用它，而不是 hyprlock。
+
+    Mod+F2 hotkey-overlay-title="Restart QuickShell" { spawn-sh "pkill quickshell || true && quickshell"; }
+    // QuickShell 调样式时很常用的重启键，照着参考仓库保留。
+
+    Mod+N { spawn "nautilus" "--new-window"; }
+    // 文件管理器。
+
+    // 音量与媒体键
+    // -----------------------------------------------------------------------
+    XF86AudioRaiseVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.05+ -l 1.0"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn-sh "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.05-"; }
+    XF86AudioMute allow-when-locked=true { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"; }
+    XF86AudioMicMute allow-when-locked=true { spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"; }
+
+    XF86AudioPlay allow-when-locked=true { spawn-sh "playerctl play-pause"; }
+    XF86AudioStop allow-when-locked=true { spawn-sh "playerctl stop"; }
+    XF86AudioPrev allow-when-locked=true { spawn-sh "playerctl previous"; }
+    XF86AudioNext allow-when-locked=true { spawn-sh "playerctl next"; }
+
+    // 基本窗口控制
+    // -----------------------------------------------------------------------
+    Mod+O repeat=false { toggle-overview; }
+    // 手动打开 overview。已经关闭鼠标热角触发，只保留明确键盘入口。
+
+    Mod+Q repeat=false { close-window; }
+
+    // 列 / 窗口内导航
+    // -----------------------------------------------------------------------
+    // 左右是“列”，上下是“列内窗口”。
+    Mod+Left  { focus-column-left; }
+    Mod+Down  { focus-window-down; }
+    Mod+Up    { focus-window-up; }
+    Mod+Right { focus-column-right; }
+    Mod+H     { focus-column-left; }
+    Mod+J     { focus-window-down; }
+    Mod+K     { focus-window-up; }
+    Mod+L     { focus-column-right; }
+
+    // 移动当前列 / 列内窗口
+    Mod+Ctrl+Left  { move-column-left; }
+    Mod+Ctrl+Down  { move-window-down; }
+    Mod+Ctrl+Up    { move-window-up; }
+    Mod+Ctrl+Right { move-column-right; }
+    Mod+Ctrl+H     { move-column-left; }
+    Mod+Ctrl+J     { move-window-down; }
+    Mod+Ctrl+K     { move-window-up; }
+    Mod+Ctrl+L     { move-column-right; }
+
+    // 快速跳到当前工作区的最左列 / 最右列。
+    Mod+Home { focus-column-first; }
+    Mod+End  { focus-column-last; }
+    Mod+Ctrl+Home { move-column-to-first; }
+    Mod+Ctrl+End  { move-column-to-last; }
+
+    // 双屏：传送当前列
+    // -----------------------------------------------------------------------
+    // 你要求：屏幕间“传送”比“切焦点”更顺手，因此放在更短的快捷键上。
+    Mod+Shift+Page_Up  { move-column-to-monitor-left; }
+//    Mod+Shift+Down  { move-column-to-monitor-down; }
+//    Mod+Shift+Up    { move-column-to-monitor-up; }
+    Mod+Shift+Page_Down { move-column-to-monitor-right; }
+    Mod+Shift+H     { move-column-to-monitor-left; }
+    Mod+Shift+J     { move-column-to-monitor-down; }
+    Mod+Shift+K     { move-column-to-monitor-up; }
+    Mod+Shift+L     { move-column-to-monitor-right; }
+
+    // 双屏：切换焦点到另一块屏
+    Mod+Shift+Left  { focus-monitor-left; }
+    Mod+Shift+Down  { focus-monitor-down; }
+    Mod+Shift+Up    { focus-monitor-up; }
+    Mod+Shift+Right { focus-monitor-right; }
+
+    // 工作区导航
+    // -----------------------------------------------------------------------
+    // 这里的 “up/down” 是 niri 的逻辑工作区顺序，不是屏幕物理方向。
+    // 你现在的手感约定是：
+    // - Super+Alt+Left  = 上一个工作区
+    // - Super+Alt+Right = 下一个工作区
+    Mod+Alt+Left  { focus-workspace-up; }
+    Mod+Alt+Right { focus-workspace-down; }
+
+    // 把当前列送到相邻工作区。
+    Mod+Alt+Page_Up   { move-column-to-workspace-up; }
+    Mod+Alt+Page_Down { move-column-to-workspace-down; }
+
+    // 直接跳数字工作区。
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+
+    // 把当前列直接送到指定数字工作区。
+    Mod+Ctrl+1 { move-column-to-workspace 1; }
+    Mod+Ctrl+2 { move-column-to-workspace 2; }
+    Mod+Ctrl+3 { move-column-to-workspace 3; }
+    Mod+Ctrl+4 { move-column-to-workspace 4; }
+    Mod+Ctrl+5 { move-column-to-workspace 5; }
+    Mod+Ctrl+6 { move-column-to-workspace 6; }
+    Mod+Ctrl+7 { move-column-to-workspace 7; }
+    Mod+Ctrl+8 { move-column-to-workspace 8; }
+    Mod+Ctrl+9 { move-column-to-workspace 9; }
+
+    // 列结构调整
+    // -----------------------------------------------------------------------
+    Mod+BracketLeft  { consume-or-expel-window-left; }
+    Mod+BracketRight { consume-or-expel-window-right; }
+    // 把窗口“吃进”左/右边列，或从列结构中重排。
+
+    Mod+Comma        { consume-window-into-column; }
+    Mod+Period       { expel-window-from-column; }
+    // 显式把窗口并入当前列 / 从当前列中吐出单独成列。
+
+    // 尺寸与布局模式
+    // -----------------------------------------------------------------------
+    Mod+R { switch-preset-column-width; }
+    Mod+Shift+R { switch-preset-window-height; }
+    Mod+Ctrl+R { reset-window-height; }
+    Mod+F { maximize-column; }
+    Mod+Shift+F { fullscreen-window; }
+    Mod+Ctrl+F { expand-column-to-available-width; }
+    Mod+C { center-column; }
+    Mod+Ctrl+C { center-visible-columns; }
+    Mod+Minus { set-column-width "-10%"; }
+    Mod+Equal { set-column-width "+10%"; }
+    Mod+Shift+Minus { set-window-height "-10%"; }
+    Mod+Shift+Equal { set-window-height "+10%"; }
+    Mod+V { toggle-window-floating; }
+    Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+    Mod+W { toggle-column-tabbed-display; }
+
+    // 常见但目前不需要的绑定思路：
+    // Mod+Space { toggle-window-floating; }
+    //   更接近某些传统 WM 的浮动切换习惯。
+    //
+    // Mod+P { screenshot; }
+    //   使用 niri 内建截图，而不是 grim/slurp/satty 组合。
+
+    // 截图
+    // -----------------------------------------------------------------------
+    Ctrl+Alt+A { spawn "sh" "-c" "$HOME/.config/niri/scripts/screenshot-area.sh"; }
+    Ctrl+Print { spawn "sh" "-c" "$HOME/.config/niri/scripts/screenshot-screen.sh"; }
+    Ctrl+Alt+Z { spawn-sh "playerctl play-pause"; }
+    Alt+Print { screenshot-window; }
+
+    // 其他
+    // -----------------------------------------------------------------------
+    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+    // 某些全屏程序会抢快捷键；这条用于临时切换是否允许抑制快捷键。
+
+    Mod+Shift+E { quit; }
+    Ctrl+Alt+Delete { quit; }
+    // 退出 niri 会话，不是关机。
+
+    Mod+Shift+P { power-off-monitors; }
+    // 关闭显示器背光/输出，类似“息屏”。
+}

@@ -1,0 +1,19 @@
+# makepkg/build outputs
+src/
+pkg/
+*.pkg.tar.zst
+*.pkg.tar.zst.sig
+*.log
+
+# local upstream clone/cache
+wayscrollshot/
+
+# editor/system noise
+.DS_Store
+.idea/
+.vscode/
+
+# Python caches
+__pycache__/
+*.pyc
+

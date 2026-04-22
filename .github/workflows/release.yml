@@ -1,0 +1,98 @@
+name: package-release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed base-devel git rust cargo sudo
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create build user
+        run: |
+          useradd -m builder
+          chown -R builder:builder "${GITHUB_WORKSPACE}"
+          printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
+          chmod 440 /etc/sudoers.d/builder
+
+      - name: Build package
+        run: |
+          su builder -c "cd '${GITHUB_WORKSPACE}' && ./scripts/aur-package.sh"
+
+      - name: Collect build artifacts
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/dist"
+          find "${GITHUB_WORKSPACE}/aur/my-niri-desk" -maxdepth 1 -type f -name '*.pkg.tar.zst' -exec cp -v {} "${GITHUB_WORKSPACE}/dist/" \;
+          find "${GITHUB_WORKSPACE}/aur/my-niri-desk" -maxdepth 1 -type f -name '*.pkg.tar.zst.sig' -exec cp -v {} "${GITHUB_WORKSPACE}/dist/" \; || true
+          ls -lah "${GITHUB_WORKSPACE}/dist"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-niri-desk-package
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download built package
+        uses: actions/download-artifact@v4
+        with:
+          name: my-niri-desk-package
+          path: dist
+
+      - name: Compute release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "tag_name=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+            echo "release_name=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+            echo "prerelease=false" >> "${GITHUB_OUTPUT}"
+            echo "body=Automated release build for ${GITHUB_REF_NAME}." >> "${GITHUB_OUTPUT}"
+          else
+            echo "tag_name=rolling" >> "${GITHUB_OUTPUT}"
+            echo "release_name=rolling" >> "${GITHUB_OUTPUT}"
+            echo "prerelease=true" >> "${GITHUB_OUTPUT}"
+            echo "body=Automated rolling build from ${GITHUB_SHA}." >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Reset rolling release
+        if: github.ref_type != 'tag'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete rolling --cleanup-tag -y || true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.meta.outputs.release_name }}
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          body: ${{ steps.meta.outputs.body }}
+          files: dist/*
+          make_latest: ${{ github.ref_type == 'tag' }}

@@ -1,0 +1,93 @@
+[Hotkey]
+# 反复按切换键时进行轮换
+EnumerateWithTriggerKeys=True
+# 向前切换输入法
+EnumerateForwardKeys=
+# 向后切换输入法
+EnumerateBackwardKeys=
+# 轮换输入法时跳过第一个输入法
+EnumerateSkipFirst=False
+# 触发修饰键快捷键的时限 (毫秒)
+ModifierOnlyKeyTimeout=250
+
+[Hotkey/TriggerKeys]
+0=Control+space
+1=Zenkaku_Hankaku
+2=Hangul
+# 这里定义的是“启用/切换输入法”的主触发键。
+# 你当前最常用的是 Ctrl+Space。
+
+[Hotkey/AltTriggerKeys]
+0=Shift_L
+# 这里表示单独按左 Shift 也可以在部分状态下触发切换。
+# 如果以后你仍然觉得输入状态会误切，这一项是优先考虑关闭的对象。
+
+[Hotkey/EnumerateGroupForwardKeys]
+0=Super+space
+
+[Hotkey/EnumerateGroupBackwardKeys]
+0=Shift+Super+space
+# 这是“输入法组轮换”快捷键，不是同一个输入法内部中英切换。
+# 因为你现在只保留了一组 `默认`，它的存在感已经比以前低很多。
+
+[Hotkey/ActivateKeys]
+0=Hangul_Hanja
+
+[Hotkey/DeactivateKeys]
+0=Hangul_Romaja
+
+[Hotkey/PrevPage]
+0=Up
+
+[Hotkey/NextPage]
+0=Down
+
+[Hotkey/PrevCandidate]
+0=Shift+Tab
+
+[Hotkey/NextCandidate]
+0=Tab
+
+[Hotkey/TogglePreedit]
+0=Control+Alt+P
+
+[Behavior]
+# 默认状态为激活
+ActiveByDefault=False
+# False 表示进入英文状态后，不强制每次都默认跳回中文。
+# 这对命令行、URL、文件名输入更友好。
+# 重新聚焦时重置状态
+resetStateWhenFocusIn=No
+# 共享输入状态
+ShareInputState=No
+# No 表示每个窗口/应用可保留自己的输入状态。
+# 如果以后你想“所有窗口统一跟随一个中/英状态”，可以改 Yes。
+# 在程序中显示预编辑文本
+PreeditEnabledByDefault=True
+# 切换输入法时显示输入法信息
+ShowInputMethodInformation=True
+# 在焦点更改时显示输入法信息
+showInputMethodInformationWhenFocusIn=False
+# 显示紧凑的输入法信息
+CompactInputMethodInformation=True
+# 显示第一个输入法的信息
+ShowFirstInputMethodInformation=True
+# 默认页大小
+DefaultPageSize=5
+# 覆盖 Xkb 选项
+OverrideXkbOption=False
+# 自定义 Xkb 选项
+CustomXkbOption=
+# Force Enabled Addons
+EnabledAddons=
+# Force Disabled Addons
+DisabledAddons=
+# Preload input method to be used by default
+PreloadInputMethod=True
+# 预加载默认输入法，减少第一次切换到拼音时的延迟。
+# 允许在密码框中使用输入法
+AllowInputMethodForPassword=False
+# 输入密码时显示预编辑文本
+ShowPreeditForPassword=False
+# 保存用户数据的时间间隔（以分钟为单位）
+AutoSavePeriod=30
