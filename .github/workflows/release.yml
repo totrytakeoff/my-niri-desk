@@ -36,13 +36,13 @@ jobs:
 
       - name: Build package
         run: |
-          su builder -c "cd '${GITHUB_WORKSPACE}' && ./scripts/aur-package.sh"
+          su builder -c "cd '${GITHUB_WORKSPACE}' && makepkg -f"
 
       - name: Collect build artifacts
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/dist"
-          find "${GITHUB_WORKSPACE}/aur/my-niri-desk" -maxdepth 1 -type f -name '*.pkg.tar.zst' -exec cp -v {} "${GITHUB_WORKSPACE}/dist/" \;
-          find "${GITHUB_WORKSPACE}/aur/my-niri-desk" -maxdepth 1 -type f -name '*.pkg.tar.zst.sig' -exec cp -v {} "${GITHUB_WORKSPACE}/dist/" \; || true
+          find "${GITHUB_WORKSPACE}" -maxdepth 1 -type f -name '*.pkg.tar.zst' -exec cp -v {} "${GITHUB_WORKSPACE}/dist/" \;
+          find "${GITHUB_WORKSPACE}" -maxdepth 1 -type f -name '*.pkg.tar.zst.sig' -exec cp -v {} "${GITHUB_WORKSPACE}/dist/" \; || true
           ls -lah "${GITHUB_WORKSPACE}/dist"
 
       - name: Upload workflow artifact

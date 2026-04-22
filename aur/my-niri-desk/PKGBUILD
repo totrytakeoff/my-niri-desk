@@ -67,9 +67,9 @@ source=(
   "${pkgname}.install"
 )
 sha256sums=(
-  'REPLACE_ME_TARBALL_SHA256'
+  '5b10a6ed4ecf843627c650c6a245d95749ab1d1d550480088e6f31385069ff47'
   'SKIP'
-  'REPLACE_ME_INSTALL_SHA256'
+  '1635fc07adbccdf91c2243ea9fbb74612844ca0c288d09d796eb21d1cf0b7676'
 )
 
 build() {
