@@ -63,36 +63,30 @@ jobs:
           name: my-niri-desk-package
           path: dist
 
-      - name: Compute release metadata
-        id: meta
-        shell: bash
-        run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            echo "tag_name=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
-            echo "release_name=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
-            echo "prerelease=false" >> "${GITHUB_OUTPUT}"
-            echo "body=Automated release build for ${GITHUB_REF_NAME}." >> "${GITHUB_OUTPUT}"
-          else
-            echo "tag_name=rolling" >> "${GITHUB_OUTPUT}"
-            echo "release_name=rolling" >> "${GITHUB_OUTPUT}"
-            echo "prerelease=true" >> "${GITHUB_OUTPUT}"
-            echo "body=Automated rolling build from ${GITHUB_SHA}." >> "${GITHUB_OUTPUT}"
-          fi
-
-      - name: Reset rolling release
+      - name: Publish rolling release
         if: github.ref_type != 'tag'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete rolling --cleanup-tag -y || true
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ steps.meta.outputs.tag_name }}
-          target_commitish: ${{ github.sha }}
-          name: ${{ steps.meta.outputs.release_name }}
-          prerelease: ${{ steps.meta.outputs.prerelease }}
-          body: ${{ steps.meta.outputs.body }}
-          files: dist/*
-          make_latest: ${{ github.ref_type == 'tag' }}
+          tag: rolling
+          name: rolling
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          artifactErrorsFailBuild: true
+          body: Automated rolling build from ${{ github.sha }}.
+          artifacts: "dist/*"
+
+      - name: Publish tagged release
+        if: github.ref_type == 'tag'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          prerelease: false
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          artifactErrorsFailBuild: true
+          body: Automated release build for ${{ github.ref_name }}.
+          artifacts: "dist/*"
