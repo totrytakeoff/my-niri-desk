@@ -36,7 +36,7 @@ jobs:
 
       - name: Build package
         run: |
-          su builder -c "cd '${GITHUB_WORKSPACE}' && makepkg -f"
+          su builder -c "cd '${GITHUB_WORKSPACE}' && makepkg -f --nodeps"
 
       - name: Collect build artifacts
         run: |
