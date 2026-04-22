@@ -22,7 +22,7 @@ jobs:
       - name: Install build dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm --needed base-devel git rust cargo sudo
+          pacman -S --noconfirm --needed base-devel git rust cargo sudo libxkbcommon
 
       - name: Checkout repository
         uses: actions/checkout@v4
