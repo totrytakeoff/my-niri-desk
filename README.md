@@ -191,6 +191,32 @@ my-niri-desk-apply
 
 脚本会先备份旧配置，再复制新模板。
 
+## 开发同步
+
+仓库里提供了一个维护脚本，用来检查本机配置和 `payload/skel` 是否漂移：
+
+```bash
+./scripts/sync-local-config.sh
+```
+
+常用用法：
+
+```bash
+./scripts/sync-local-config.sh status
+./scripts/sync-local-config.sh pull
+./scripts/sync-local-config.sh push
+./scripts/sync-local-config.sh status --include-wallpaper
+./scripts/sync-local-config.sh pull --dry-run
+```
+
+说明：
+
+- `status`：只检查差异，发现漂移时返回非零。
+- `pull`：把仓库 `payload/skel` 同步回本机对应配置目录。
+- `push`：把本机配置同步回仓库 `payload/skel`。
+- `pull/push` 都会对受管目录使用 `rsync --delete`。
+- 默认不包含 `~/.config/wallpaper`，避免把个人壁纸文件误同步到仓库。
+
 ## 当前范围
 
 这个包的目标是提供一套稳定、完整、可继续迭代的第一版桌面环境。
