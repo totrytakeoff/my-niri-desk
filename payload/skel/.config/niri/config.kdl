@@ -448,3 +448,12 @@ binds {
     Mod+Shift+P { power-off-monitors; }
     // 关闭显示器背光/输出，类似“息屏”。
 }
+
+debug {
+    // 允许接受某些应用携带“无效 serial”的 xdg-activation 请求。
+    // 这能改善点击通知、托盘，或把文件/链接交给已启动程序时，
+    // 目标窗口没有自动跳到前台的问题。
+    // 某些应用或 portal 后端不会按最严格的序列号要求发 activation token，
+    // 开启这一项后，niri 会更像传统桌面环境那样接受这类激活请求。
+    honor-xdg-activation-with-invalid-serial
+}
