@@ -92,6 +92,17 @@ PanelWindow {
         else root.visible = true 
     }
 
+    function cycleMode(step) {
+        const modeCount = 3
+
+        if (!WidgetState.launcherCyclicNavigation) {
+            root.currentMode = Math.max(0, Math.min(modeCount - 1, root.currentMode + step))
+            return
+        }
+
+        root.currentMode = (root.currentMode + step + modeCount) % modeCount
+    }
+
     MouseArea {
         anchors.fill: parent
         onClicked: root.requestClose()
@@ -191,9 +202,21 @@ PanelWindow {
             event.accepted = true
         }
 
-        Keys.onTabPressed: (event) => {
-            root.currentMode = (root.currentMode + 1) % 3
-            event.accepted = true
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_Backtab) {
+                root.cycleMode(-1)
+                event.accepted = true
+                return
+            }
+
+            if (event.key === Qt.Key_Tab) {
+                if (event.modifiers & Qt.ShiftModifier) {
+                    root.cycleMode(-1)
+                } else {
+                    root.cycleMode(1)
+                }
+                event.accepted = true
+            }
         }
         
         MouseArea { anchors.fill: parent } 

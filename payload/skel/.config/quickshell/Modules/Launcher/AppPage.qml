@@ -83,6 +83,7 @@ Item {
         model: filteredAppsModel
         
         boundsBehavior: Flickable.StopAtBounds
+        keyNavigationWraps: WidgetState.launcherCyclicNavigation
         highlightRangeMode: ListView.StrictlyEnforceRange 
         preferredHighlightBegin: 0
         preferredHighlightEnd: height - 56 

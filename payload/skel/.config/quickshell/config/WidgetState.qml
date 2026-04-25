@@ -35,6 +35,13 @@ QtObject {
     // - session: 当前会话/设备状态
     property string leftSidebarView: "dashboard"
 
+    // Launcher 键盘循环导航总开关。
+    // 打开后：
+    // - 应用 / 窗口 / 壁纸列表支持首尾循环选择
+    // - Tab / Shift+Tab 支持在 3 个 launcher 页面间循环切换
+    // 关闭后则回退为普通边界行为：到顶/到底停止，Tab 只做正向切换。
+    property bool launcherCyclicNavigation: true
+
     // 通知中心窗口是否打开。
     property bool notifOpen: false
     property bool notifIsHovered: false 
