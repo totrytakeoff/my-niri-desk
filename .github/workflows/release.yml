@@ -19,13 +19,16 @@ jobs:
       image: archlinux:latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
       - name: Install build dependencies
         run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm --needed base-devel git rust cargo sudo libxkbcommon
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -Syu --noconfirm --needed
+          pacman -S --noconfirm --needed base-devel git rust sudo libxkbcommon
 
       - name: Create build user
         run: |
@@ -46,7 +49,7 @@ jobs:
           ls -lah "${GITHUB_WORKSPACE}/dist"
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: my-niri-desk-package
           path: dist/*
@@ -58,7 +61,7 @@ jobs:
 
     steps:
       - name: Download built package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: my-niri-desk-package
           path: dist
