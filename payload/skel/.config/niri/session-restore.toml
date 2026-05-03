@@ -1,0 +1,50 @@
+enabled = true
+
+# 保存的会话状态文件。
+state_file = "~/.local/state/niri-session/last-session.json"
+
+# 启动 niri 后，延迟多久开始做恢复。
+restore_delay_seconds = 6.0
+
+# watcher 启动后先等待多久再开始覆盖会话状态，
+# 避免刚登录时把“空桌面”误保存掉。
+watch_startup_grace_seconds = 45.0
+
+# 优先使用 niri event-stream 做事件驱动保存。
+# 如果 event-stream 断开，则自动重连；如果关闭这个开关，才退回纯轮询。
+watch_use_event_stream = true
+
+# 纯轮询兜底周期。只有关闭 event-stream 模式时才会按这个频率轮询。
+watch_poll_seconds = 30.0
+
+# 事件驱动保存的防抖时间。窗口/工作区连续变化时，
+# 等这段时间内没有新的相关事件，再落一次盘。
+watch_debounce_seconds = 1.5
+
+# 如果事件持续不断，最长拖到这个时间也会强制保存一次，
+# 避免一直因为频繁事件而没有稳定快照。
+watch_max_dirty_seconds = 10.0
+
+# 即使长时间没有事件，也会按这个周期做一次兜底保存。
+watch_periodic_save_seconds = 300.0
+
+# event-stream 意外断开后的重连等待时间。
+watch_reconnect_seconds = 2.0
+
+# 单个应用等待新窗口出现的最长时间。
+launch_timeout_seconds = 25.0
+
+# 启动一批应用后额外等待一下，让窗口标题和内部状态稳定。
+post_launch_settle_seconds = 1.0
+
+# 是否把浮动窗口也纳入恢复。
+# 当前仅恢复其 app / workspace / monitor / floating 状态，
+# 不恢复精确屏幕坐标。
+include_floating_windows = true
+
+# 这些 app_id 只启动一次，然后等待应用自己把多窗口恢复出来。
+# 适合浏览器 / 编辑器这类自带会话恢复的程序。
+launch_once_app_ids = ["code", "zen"]
+
+# 不参与保存/恢复的 app_id。
+exclude_app_ids = []

@@ -24,6 +24,7 @@ import QtQuick
 import qs.Modules.Bar
 import qs.Modules.Launcher 
 import qs.Modules.DynamicIsland
+import qs.Modules.Clipboard
 // 【新增】：引入你重构后的 Widget 文件夹
 import qs.Widget
 // 【新增】：引入热角触发器路径
@@ -78,4 +79,8 @@ ShellRoot {
     // 启动器窗口。
     LauncherWindow { id: rofiLauncher }
     IpcHandler { target: "launcher"; function toggle() { rofiLauncher.toggleWindow(); return "LAUNCHER_TOGGLED"; } }
+
+    // 剪贴板历史窗口。
+    ClipboardWindow { id: clipboardWindow }
+    IpcHandler { target: "clipboard"; function toggle() { clipboardWindow.toggleWindow(); return "CLIPBOARD_TOGGLED"; } }
 }

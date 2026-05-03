@@ -163,6 +163,18 @@ spawn-at-startup "blueman-applet"
 spawn-at-startup "awww-daemon"
 // QuickShell 的壁纸切换依赖 awww 守护进程。
 
+spawn-sh-at-startup "sleep 6; python3 \"$HOME/.config/niri/scripts/niri-session.py\" restore"
+// 尝试恢复上一次 niri 会话保存下来的应用与大致布局。
+// 这里主要恢复：
+// - 应用本身是否打开
+// - 所在显示器 / 工作区
+// - 平铺窗口的大致列布局
+// 不负责恢复应用内部文档内容；浏览器 / 编辑器自己的会话恢复仍由应用本身负责。
+
+spawn-sh-at-startup "python3 \"$HOME/.config/niri/scripts/niri-session.py\" watch"
+// 后台持续保存 niri 会话状态。
+// watcher 自己带启动保护期，避免刚登录时把空桌面覆盖成“最后会话”。
+
 spawn-sh-at-startup "awww-daemon -n overview"
 // 给 overview / blur 缓存准备独立的 overview 壁纸守护进程。
 
@@ -172,6 +184,17 @@ spawn-sh-at-startup "sleep 1; wall=$(find \"$HOME/Pictures/wallpapers\" -maxdept
 
 // spawn-at-startup "swaybg" "-i" "$HOME/.local/share/backgrounds/default.png" "-m" "fill"
 // 旧壁纸方案。改用 awww 后先停用，避免和动态壁纸切换互相覆盖。
+
+// 同步wl-copy 与 xclip
+spawn-at-startup "wl-paste" "--type" "text" "--watch" "xclip" "-selection" "clipboard"
+spawn-at-startup "wl-paste" "--type" "image/png" "--watch" "xclip" "-selection" "clipboard" "-t" "image/png"
+
+spawn-sh-at-startup "$HOME/.config/quickshell/scripts/clipboard_watch.sh"
+// cliphist 负责剪贴板历史存储；QuickShell 只负责展示和恢复。
+
+
+
+
 
 hotkey-overlay {
     // 目前保持默认；`Super+Shift+/` 仍然会调出快捷键总览。
@@ -220,6 +243,14 @@ window-rule {
 window-rule {
     // Firefox 画中画窗口始终浮动，避免打乱平铺布局。
     match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    open-floating true
+}
+
+window-rule {
+    // VOFA+ 拖拽组件时会临时创建标题为 `vofa+` 的代理窗口，
+    // 主窗口标题则类似 `vofa.plus @1.4.5`。两者 app-id 相同，
+    // 因此统一强制进入 floating，避免主窗与拖拽代理窗分属不同布局。
+    match app-id=r#"^vofa\+$"#
     open-floating true
 }
 
@@ -278,6 +309,9 @@ binds {
     Mod+D hotkey-overlay-title="Toggle Launcher: quickshell" { spawn "quickshell" "ipc" "call" "launcher" "toggle"; }
     Alt+Space { spawn "quickshell" "ipc" "call" "launcher" "toggle"; }
     // QuickShell 自带 Launcher；这里把原来的 fuzzel 入口切过去。
+
+    Alt+V hotkey-overlay-title="Toggle Clipboard History: quickshell" { spawn "quickshell" "ipc" "call" "clipboard" "toggle"; }
+    // QuickShell + cliphist 剪贴板历史。
 
     Mod+Shift+T { spawn "quickshell" "ipc" "call" "island" "tools"; }
     // 参考仓库原键位：打开 / 关闭灵动岛 tools 面板。

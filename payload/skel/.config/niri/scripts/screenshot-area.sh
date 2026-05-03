@@ -31,7 +31,7 @@ satty \
   --floating-hack \
   --copy-command wl-copy \
   --actions-on-right-click save-to-clipboard,exit \
-  --disable-notifications
+  --disable-notifications 
   # --default-hide-toolbars
 
 # 说明：
@@ -49,3 +49,4 @@ satty \
 #   在当前屏幕全屏打开 satty。
 # --early-exit
 #   执行保存/复制后立即退出。
+# --copy-command "tee >(wl-copy) | xclip -selection clipboard -t image/png" \  # 同时复制到 Wayland 和 X11 剪贴板；如果不需要 X11 支持，直接用 wl-copy 就好。

@@ -18,6 +18,7 @@
 - `fuzzel` 启动器
 - `kitty` 终端配置
 - `satty + OCR + wayscrollshot` 截图工具链
+- `cliphist + QuickShell` 剪贴板历史
 - 默认壁纸目录 `~/.config/wallpaper`
 
 ## 特性
@@ -30,6 +31,7 @@
   - 长截图
   - 录音/录屏
   - 取色器
+  - 剪贴板历史
 - 右侧快捷设置：
   - 网络
   - 蓝牙
@@ -67,6 +69,7 @@
   - `grim`
   - `slurp`
   - `wl-clipboard`
+  - `cliphist`
   - `satty`
   - `tesseract`
   - `ffmpeg`
@@ -203,6 +206,9 @@ my-niri-desk-apply
 
 ```bash
 ./scripts/sync-local-config.sh status
+./scripts/sync-local-config.sh diff
+./scripts/sync-local-config.sh diff niri/config.kdl
+./scripts/sync-local-config.sh diff .config/niri/scripts/screenshot-screen.sh
 ./scripts/sync-local-config.sh pull
 ./scripts/sync-local-config.sh push
 ./scripts/sync-local-config.sh status --include-wallpaper
@@ -212,9 +218,11 @@ my-niri-desk-apply
 说明：
 
 - `status`：只检查差异，发现漂移时返回非零。
+- `diff`：输出从仓库模板到本机配置的 unified diff，`-` 为仓库，`+` 为本机。
+- `status/diff` 可以追加路径参数，只检查指定受管目录或文件；例如 `niri/config.kdl` 会自动展开为 `.config/niri/config.kdl`。
 - `pull`：把仓库 `payload/skel` 同步回本机对应配置目录。
 - `push`：把本机配置同步回仓库 `payload/skel`。
-- `pull/push` 都会对受管目录使用 `rsync --delete`。
+- `pull/push` 都会对受管目录使用 `rsync --delete`，并按内容 checksum 判断是否需要同步。
 - 默认不包含 `~/.config/wallpaper`，避免把个人壁纸文件误同步到仓库。
 
 ## 当前范围

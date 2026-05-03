@@ -1,9 +1,9 @@
 pkgname=my-niri-desk
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Opinionated niri + QuickShell desktop preset with bundled wayscrollshot"
 arch=('x86_64')
-url="https://github.com/yourname/my-niri-desk"
+url="https://github.com/totrytakeoff/my-niri-desk"
 license=('custom')
 options=('!debug')
 depends=(
@@ -20,6 +20,7 @@ depends=(
   'bluez'
   'bluez-utils'
   'wl-clipboard'
+  'cliphist'
   'grim'
   'slurp'
   'hyprpicker'
@@ -55,6 +56,8 @@ optdepends=(
   'playerctl: better media control integration'
   'cava: audio visualizer for lyrics/media panels'
   'noto-fonts-cjk: fallback CJK font set'
+  'wtype: inject Ctrl+V into native Wayland apps from clipboard history'
+  'xdotool: inject Ctrl+V into X11 and some XWayland apps from clipboard history'
 )
 makedepends=(
   'cargo'
