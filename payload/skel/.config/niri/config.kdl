@@ -163,6 +163,9 @@ spawn-at-startup "blueman-applet"
 spawn-at-startup "awww-daemon"
 // QuickShell 的壁纸切换依赖 awww 守护进程。
 
+//开启Polkit 验证代理,用于提权
+spawn-at-startup "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
+
 spawn-sh-at-startup "sleep 6; python3 \"$HOME/.config/niri/scripts/niri-session.py\" restore"
 // 尝试恢复上一次 niri 会话保存下来的应用与大致布局。
 // 这里主要恢复：

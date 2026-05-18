@@ -1,6 +1,8 @@
 # makepkg/build outputs
 src/
 pkg/
+
+*.tar.gz
 *.pkg.tar.zst
 *.pkg.tar.zst.sig
 *.log
@@ -17,3 +19,4 @@ wayscrollshot/
 __pycache__/
 *.pyc
 
+.codex
