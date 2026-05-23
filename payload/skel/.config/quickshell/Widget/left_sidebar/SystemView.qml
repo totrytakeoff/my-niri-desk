@@ -47,8 +47,7 @@ Item {
     Process {
         id: procList
         command: [
-            "python3",
-            Quickshell.env("HOME") + "/.config/quickshell/scripts/process_overview.py",
+            "desk-run", "process-overview",
             "--limit", "28",
             "--sort", root.sortMode
         ]

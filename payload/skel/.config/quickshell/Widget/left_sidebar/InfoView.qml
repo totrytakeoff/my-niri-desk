@@ -211,7 +211,7 @@ Item {
 
     Process {
         id: monitorProc
-        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/scripts/sys_monitor.py"]
+        command: ["desk-run", "sys-monitor"]
         stdout: SplitParser {
             onRead: (data) => {
                 try {
@@ -231,7 +231,7 @@ Item {
 
     Process {
         id: detailsProc
-        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/scripts/sys_details.py"]
+        command: ["desk-run", "sys-details"]
         stdout: SplitParser {
             onRead: (data) => {
                 try {

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# 歌词获取器 — 从 QQ/网易云音乐获取 LRC 歌词
+# ---------------------------------------------------------------------------
 import sys
 import json
 import urllib.request
@@ -8,21 +10,22 @@ import os
 import hashlib
 import base64
 
-# ================= 配置区 =================
-CACHE_DIR = "/tmp/qs_lyrics_cache"
+CACHE_DIR = os.environ.get(
+    "DESK_TMP_DIR",
+    "/tmp/my-desk",
+)
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 }
-# =========================================
 
 
 def get_cache_path(title, artist):
     safe_name = f"{title}-{artist}".encode("utf-8", errors="ignore")
     hash_str = hashlib.md5(safe_name).hexdigest()
-    return os.path.join(CACHE_DIR, f"{hash_str}.json")
+    return os.path.join(CACHE_DIR, f"lyrics_{hash_str}.json")
 
 
 def parse_lrc(lrc_text):
@@ -31,9 +34,12 @@ def parse_lrc(lrc_text):
         return []
     lines = []
     pattern = re.compile(r"\[(\d{2}):(\d{2})[\.:](\d{2,3})\](.*)")
-    lrc_text = (
-        lrc_text.replace("&apos;", "'").replace("&quot;", '"').replace("&amp;", "&")
-    )
+    apos_entity = chr(38) + "apos;"
+    quot_entity = chr(38) + "quot;"
+    amp_entity = chr(38) + "amp;"
+    lrc_text = lrc_text.replace(apos_entity, chr(39))
+    lrc_text = lrc_text.replace(quot_entity, chr(34))
+    lrc_text = lrc_text.replace(amp_entity, chr(38))
 
     for line in lrc_text.split("\n"):
         line = line.strip()
@@ -68,7 +74,6 @@ def request_url(url, data=None, headers=None):
         return None
 
 
-# --- 1. QQ 音乐源 (Priority 1) ---
 def fetch_qq(track, artist):
     qq_headers = HEADERS.copy()
     qq_headers["Referer"] = "https://y.qq.com/"
@@ -106,7 +111,6 @@ def fetch_qq(track, artist):
     return []
 
 
-# --- 2. 网易云音乐源 (Priority 2) ---
 def fetch_netease(track, artist):
     search_url = "http://music.163.com/api/search/get/"
     ne_headers = HEADERS.copy()
@@ -152,10 +156,8 @@ if __name__ == "__main__":
         except:
             pass
 
-    # 1. 尝试 QQ 音乐
     lyrics = fetch_qq(title, artist)
 
-    # 2. 尝试 网易云音乐
     if not lyrics:
         lyrics = fetch_netease(title, artist)
 

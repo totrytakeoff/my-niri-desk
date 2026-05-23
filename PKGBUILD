@@ -1,7 +1,7 @@
 pkgname=my-niri-desk
 pkgver=0.2.0
-pkgrel=1
-pkgdesc="Opinionated niri + QuickShell desktop preset with bundled wayscrollshot"
+pkgrel=2
+pkgdesc="Opinionated niri + QuickShell desktop preset"
 arch=('x86_64')
 url="https://github.com/totrytakeoff/my-niri-desk"
 license=('custom')
@@ -12,6 +12,7 @@ depends=(
   'qt6-5compat'
   'qt6-wayland'
   'xwayland-satellite'
+  'wayscrollshot-bin'
   'fcitx5'
   'fcitx5-chinese-addons'
   'pipewire'
@@ -59,39 +60,27 @@ optdepends=(
   'wtype: inject Ctrl+V into native Wayland apps from clipboard history'
   'xdotool: inject Ctrl+V into X11 and some XWayland apps from clipboard history'
 )
-makedepends=(
-  'cargo'
-  'git'
-  'libxkbcommon'
-)
 install="${pkgname}.install"
-source=(
-  "wayscrollshot::git+https://github.com/jswysnemc/wayscrollshot.git"
-)
+source=()
 sha256sums=('SKIP')
-
-build() {
-  cd "${srcdir}/wayscrollshot"
-  cargo build --release
-}
 
 package() {
   install -dm755 "${pkgdir}/usr/bin"
   install -dm755 "${pkgdir}/usr/share/${pkgname}"
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
 
-  install -m755 "${srcdir}/wayscrollshot/target/release/wayscrollshot" "${pkgdir}/usr/bin/wayscrollshot"
   install -m755 "${startdir}/scripts/my-niri-desk-apply" "${pkgdir}/usr/bin/my-niri-desk-apply"
+  ln -s "/usr/share/${pkgname}/skel/.config/my-desk/bin/desk-run" "${pkgdir}/usr/bin/desk-run"
 
   cp -a "${startdir}/payload/skel" "${pkgdir}/usr/share/${pkgname}/"
   find "${pkgdir}/usr/share/${pkgname}/skel" -type d -exec chmod 755 {} +
   find "${pkgdir}/usr/share/${pkgname}/skel" -type f -exec chmod 644 {} +
-  find "${pkgdir}/usr/share/${pkgname}/skel/.config/niri/scripts" "${pkgdir}/usr/share/${pkgname}/skel/.config/quickshell/scripts" -type f -exec chmod 755 {} +
+  find "${pkgdir}/usr/share/${pkgname}/skel/.config/my-desk" -type f -exec chmod 755 {} +
 
   cat > "${pkgdir}/usr/share/doc/${pkgname}/README.packaging" <<'EOF'
 This package installs:
-- /usr/bin/wayscrollshot
 - /usr/bin/my-niri-desk-apply
+- /usr/bin/desk-run
 - /usr/share/my-niri-desk/skel
 
 Apply the desktop preset for the current user with:

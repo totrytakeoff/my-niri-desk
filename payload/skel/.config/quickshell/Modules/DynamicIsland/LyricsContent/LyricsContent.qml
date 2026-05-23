@@ -42,7 +42,7 @@ Item {
     // ================= 1. 歌词获取逻辑 =================
     Process {
         id: lyricsFetcher
-        command: ["python3", Quickshell.shellDir + "/scripts/lyrics_fetcher.py", root.trackTitle, root.trackArtist, root.playerName]
+        command: ["desk-run", "lyrics", root.trackTitle, root.trackArtist, root.playerName]
         stdout: SplitParser {
             onRead: data => {
                 try {

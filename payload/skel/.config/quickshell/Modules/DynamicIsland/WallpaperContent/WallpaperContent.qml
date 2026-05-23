@@ -285,7 +285,7 @@ Item {
         let matugenCmd = "matugen image \"" + currentPath + "\" --source-color-index 0";
 
         // 3. overview 脚本命令
-        let overviewCmd = "bash " + home + "/.config/quickshell/scripts/overview.sh \"" + currentPath + "\"";
+        let overviewCmd = "desk-run overview \"" + currentPath + "\"";
 
         // 注意这里把 swwwCmd 换成了 awwwCmd
         let combinedCmd = awwwCmd + " ; " + matugenCmd + " ; " + overviewCmd + " &";

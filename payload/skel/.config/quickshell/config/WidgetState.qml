@@ -79,10 +79,10 @@ QtObject {
     signal notifDataChanged();
 
     // 通知持久化：所有通知最终都落到 notify_db.py 管理。
-    readonly property string dbScriptPath: Quickshell.env("HOME") + "/.config/quickshell/scripts/notify_db.py"
+    readonly property string dbCmd: "notify-db"
 
     property var loadProcess: Process {
-        command: ["python3", root.dbScriptPath, "load"]
+        command: ["desk-run", root.dbCmd, "load"]
         stdout: SplitParser {
             onRead: (data) => {
                 try {
@@ -135,7 +135,7 @@ QtObject {
     }
 
     property var saveProcess: Process {
-        command: ["python3", root.dbScriptPath, "save", "[]"] 
+        command: ["desk-run", root.dbCmd, "save", "[]"]
     }
 
     property var saveTimer: Timer {
@@ -170,7 +170,7 @@ QtObject {
             }
             
             var jsonStr = JSON.stringify(allToSave);
-            root.saveProcess.command = ["python3", root.dbScriptPath, "save", jsonStr];
+            root.saveProcess.command = ["desk-run", root.dbCmd, "save", jsonStr];
             root.saveProcess.running = true;
         }
     }

@@ -10,14 +10,14 @@ QtObject {
     readonly property ListModel model: ListModel {}
     property int maxCount: 20
     property var privacyApps: ["qq", "wechat", "telegram", "discord"]
-    readonly property string scriptPath: Quickshell.env("HOME") + "/.config/quickshell/scripts/notify_db.py"
+    readonly property string notifyCmd: "notify-db"
 
     Component.onCompleted: {
         loadProcess.running = true
     }
 
     property var loadProcess: Process {
-        command: ["python3", root.scriptPath, "load"]
+        command: ["desk-run", root.notifyCmd, "load"]
         stdout: SplitParser {
             onRead: (data) => {
                 try {
@@ -34,7 +34,7 @@ QtObject {
     }
 
     property var saveProcess: Process {
-        command: ["python3", root.scriptPath, "save", "[]"] 
+        command: ["desk-run", root.notifyCmd, "save", "[]"]
     }
 
     function requestSave() {
@@ -50,7 +50,7 @@ QtObject {
                 data.push(root.model.get(i));
             }
             var jsonStr = JSON.stringify(data);
-            root.saveProcess.command = ["python3", root.scriptPath, "save", jsonStr];
+            root.saveProcess.command = ["desk-run", root.notifyCmd, "save", jsonStr];
             root.saveProcess.running = true;
         }
     }

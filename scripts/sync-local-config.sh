@@ -13,6 +13,7 @@ filters=()
 managed_paths=(
   ".config/niri"
   ".config/quickshell"
+  ".config/my-desk"
   ".config/fcitx5"
   ".config/hypr"
   ".config/fuzzel"

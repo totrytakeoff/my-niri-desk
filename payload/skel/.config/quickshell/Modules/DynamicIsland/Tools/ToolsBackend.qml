@@ -18,8 +18,8 @@ Item {
     // - 取色器 -> hyprpicker
     // - 普通截屏 -> grim + slurp + wl-copy
     // - 截长屏 -> wayscrollshot
-    // - OCR -> ~/.config/niri/scripts/screenshot-ocr.sh
-    // - 录屏/GIF/录音 -> scripts/record.sh
+    // - OCR -> desk-run screenshot-ocr
+    // - 录屏/GIF/录音 -> desk-run record
     
     property string currentRecordMode: "video" 
     signal recordCancelled() 
@@ -45,7 +45,7 @@ Item {
     // 录屏/GIF 开始：全部统一走 record.sh。
     function startRecord(mode) {
         backendRoot.currentRecordMode = mode
-        recordProcess.command = ["bash", "-c", "nohup bash $HOME/.config/quickshell/scripts/record.sh start " + mode + " >/dev/null 2>&1 &"]
+        recordProcess.command = ["bash", "-c", "nohup desk-run record start " + mode + " >/dev/null 2>&1 &"]
         recordProcess.running = false
         recordProcess.running = true
     }
@@ -53,21 +53,21 @@ Item {
     // 录屏/GIF 停止。
     function stopRecord() {
         var mode = backendRoot.currentRecordMode
-        stopProcess.command = ["bash", "-c", "nohup bash $HOME/.config/quickshell/scripts/record.sh stop " + mode + " >/dev/null 2>&1 &"]
+        stopProcess.command = ["bash", "-c", "nohup desk-run record stop " + mode + " >/dev/null 2>&1 &"]
         stopProcess.running = false
         stopProcess.running = true
     }
 
     // 录音开始：mode 为 audio_mic / audio_sys。
     function startAudio(mode) {
-        startAudioProcess.command = ["bash", "-c", "nohup bash $HOME/.config/quickshell/scripts/record.sh start " + mode + " >/dev/null 2>&1 &"]
+        startAudioProcess.command = ["bash", "-c", "nohup desk-run record start " + mode + " >/dev/null 2>&1 &"]
         startAudioProcess.running = false
         startAudioProcess.running = true
     }
 
     // 录音停止时统一传 audio。
     function stopAudio() {
-        stopAudioProcess.command = ["bash", "-c", "nohup bash $HOME/.config/quickshell/scripts/record.sh stop audio >/dev/null 2>&1 &"]
+        stopAudioProcess.command = ["bash", "-c", "nohup desk-run record stop audio >/dev/null 2>&1 &"]
         stopAudioProcess.running = false
         stopAudioProcess.running = true
     }
@@ -110,7 +110,7 @@ Item {
     Process { id: colorPickerProcess; command: ["bash", "-c", "nohup bash -c 'sleep 0.3; hyprpicker -a' >/dev/null 2>&1 &"] }
     Process { id: screenshotProcess; command: ["bash", "-c", "nohup bash -c 'sleep 0.3; grim -g \"$(slurp)\" - | wl-copy' >/dev/null 2>&1 &"] }
     Process { id: longScreenshotProcess; command: ["bash", "-c", "nohup bash -c 'sleep 0.3; wayscrollshot' >/dev/null 2>&1 &"] }
-    Process { id: ocrProcess; command: ["bash", "-c", "nohup bash -c 'sleep 0.3; bash $HOME/.config/niri/scripts/screenshot-ocr.sh >/tmp/quickshell-ocr.log 2>&1' >/dev/null 2>&1 &"] }
+    Process { id: ocrProcess; command: ["bash", "-c", "nohup bash -c 'sleep 0.3; desk-run screenshot-ocr >/dev/null 2>&1' >/dev/null 2>&1 &"] }
     
     Process { id: recordProcess }
     Process { id: stopProcess }

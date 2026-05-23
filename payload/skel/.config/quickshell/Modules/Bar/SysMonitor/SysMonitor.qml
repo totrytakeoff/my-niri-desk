@@ -78,12 +78,12 @@ Item {
     }
 
     // 【修复点 2】将字符串拼接提前提取为变量，禁止在 command 数组中直接做加法
-    property string scriptPath: Quickshell.env("HOME") + "/.config/quickshell/scripts/sys_monitor.py"
+    readonly property string sysMonitorCmd: "desk-run sys-monitor"
 
     Process {
         id: proc
         // 干净的数组引用，不会再出现缺少逗号的报错
-        command: ["python3", root.scriptPath]
+        command: ["desk-run", "sys-monitor"]
         
         stdout: SplitParser {
             // 【修复点 3】使用标准 function 语法，避免箭头函数 => 造成的兼容性误判

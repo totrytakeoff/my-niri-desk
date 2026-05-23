@@ -54,7 +54,7 @@ Item {
 
     Process {
         id: cavaProcess
-        command: ["bash", Quickshell.env("HOME") + "/.config/quickshell/scripts/wave_" + audioRoot.audioMode + ".sh"]
+        command: ["desk-run", "wave"]
         running: false
 
         stdout: SplitParser {

@@ -33,6 +33,7 @@ for rel in \
   ".config/hypr" \
   ".config/fuzzel" \
   ".config/mako" \
+  ".config/my-desk" \
   ".local/share/fcitx5/themes/NiriGlass"
 do
   backup_if_exists "${HOME}/${rel}"
@@ -46,8 +47,9 @@ if [[ -d "${template_root}/.config/wallpaper" ]]; then
   cp -af "${template_root}/.config/wallpaper/." "${HOME}/.config/wallpaper/"
 fi
 
-find "${HOME}/.config/niri/scripts" -type f -exec chmod +x {} +
-find "${HOME}/.config/quickshell/scripts" -type f -exec chmod +x {} +
+find "${HOME}/.config/my-desk" -type f -exec chmod +x {} + 2>/dev/null || true
+find "${HOME}/.config/niri/scripts" -type f -exec chmod +x {} + 2>/dev/null || true
+find "${HOME}/.config/quickshell/scripts" -type f -exec chmod +x {} + 2>/dev/null || true
 
 sed -i "s|@HOME@|${HOME}|g" "${HOME}/.config/hypr/hyprlock.conf"
 

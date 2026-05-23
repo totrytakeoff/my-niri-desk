@@ -34,7 +34,7 @@ Item {
     Process {
         id: lyricsProc
         running: false
-        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/scripts/lyrics_fetcher.py", root.title, root.artist]
+        command: ["desk-run", "lyrics", root.title, root.artist]
         
         stdout: SplitParser {
             splitMarker: "\n"

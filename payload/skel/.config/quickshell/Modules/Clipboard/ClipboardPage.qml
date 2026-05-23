@@ -16,7 +16,6 @@ Item {
     property bool loading: false
     property int selectedIndex: 0
     property var pendingCommand: []
-    readonly property string scriptPath: Quickshell.env("HOME") + "/.config/quickshell/scripts/clipboard_bridge.py"
 
     function forceSearchFocus() {
         searchBox.forceActiveFocus()
@@ -26,7 +25,7 @@ Item {
         root.loading = true
         root.errorText = ""
         listProcess.running = false
-        listProcess.command = ["python3", root.scriptPath, "list"]
+        listProcess.command = ["desk-run", "clipboard-bridge", "list"]
         listProcess.running = true
     }
 
@@ -115,7 +114,7 @@ Item {
     function copySelected() {
         const item = selectedItem()
         if (!item) return
-        root.pendingCommand = ["python3", root.scriptPath, "copy", item.payload]
+        root.pendingCommand = ["desk-run", "clipboard-bridge", "copy", item.payload]
         root.requestClose()
         actionTimer.restart()
     }
@@ -123,7 +122,18 @@ Item {
     function pasteSelected() {
         const item = selectedItem()
         if (!item) return
-        root.pendingCommand = ["python3", root.scriptPath, "copy", item.payload]
+        root.pendingCommand = ["desk-run", "clipboard-bridge", "copy", item.payload]
+        root.requestClose()
+        actionTimer.restart()
+    }
+
+    function transformSelected() {
+        const item = selectedItem()
+        if (!item || !item.canTransform || !item.transformPayload) {
+            copySelected()
+            return
+        }
+        root.pendingCommand = ["desk-run", "clipboard-bridge", "transform-file", item.transformPayload]
         root.requestClose()
         actionTimer.restart()
     }
@@ -132,13 +142,13 @@ Item {
         const item = selectedItem()
         if (!item) return
         actionProcess.running = false
-        actionProcess.command = ["python3", root.scriptPath, "delete", item.raw]
+        actionProcess.command = ["desk-run", "clipboard-bridge", "delete", item.raw]
         actionProcess.running = true
     }
 
     function wipeHistory() {
         actionProcess.running = false
-        actionProcess.command = ["python3", root.scriptPath, "wipe"]
+        actionProcess.command = ["desk-run", "clipboard-bridge", "wipe"]
         actionProcess.running = true
     }
 
@@ -190,6 +200,8 @@ Item {
     Shortcut { sequence: "Down"; onActivated: root.moveSelection(1) }
     Shortcut { sequence: "Return"; onActivated: root.copySelected() }
     Shortcut { sequence: "Enter"; onActivated: root.copySelected() }
+    Shortcut { sequence: "Shift+Return"; onActivated: root.transformSelected() }
+    Shortcut { sequence: "Shift+Enter"; onActivated: root.transformSelected() }
     Shortcut { sequence: "Ctrl+Return"; onActivated: root.copySelected() }
     Shortcut { sequence: "Ctrl+Enter"; onActivated: root.copySelected() }
     Shortcut { sequence: "Delete"; onActivated: root.deleteSelected() }
@@ -388,9 +400,10 @@ Item {
                             root.selectedIndex = index
                             itemsList.currentIndex = index
                         }
-                        onClicked: {
+                        onClicked: (mouse) => {
                             root.selectedIndex = index
-                            root.pasteSelected()
+                            if ((mouse.modifiers & Qt.ShiftModifier) && modelData.canTransform) root.transformSelected()
+                            else root.pasteSelected()
                         }
                     }
 
@@ -446,11 +459,32 @@ Item {
                                 Layout.fillWidth: true
                             }
                         }
+
+                        Rectangle {
+                            Layout.alignment: Qt.AlignVCenter
+                            visible: !!modelData.hasExtraMime
+                            width: 26
+                            height: 26
+                            radius: 8
+                            color: itemDelegate.ListView.isCurrentItem ? Qt.rgba(1, 1, 1, 0.2) : Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.12)
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "link"
+                                font.family: "Material Symbols Rounded"
+                                font.pixelSize: 15
+                                color: itemDelegate.ListView.isCurrentItem ? Colorscheme.on_primary : Colorscheme.primary
+                            }
+                        }
                     }
                 }
             }
 
+            // =========================================================
+            // 🎯 【重构版】右侧自适应预览面板（精准治愈排版挤压与溢出）
+            // =========================================================
             Rectangle {
+                id: previewPanel
                 Layout.preferredWidth: 292
                 Layout.fillHeight: true
                 visible: root.selectedItem() !== null
@@ -459,14 +493,17 @@ Item {
                 border.width: 1
                 border.color: Colorscheme.glass_outline
 
+                property var currentItem: root.selectedItem()
+
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 18
-                    spacing: 14
+                    anchors.margins: 16
+                    spacing: 12
 
+                    // --- 1. 顶栏：核心元数据展示 ---
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 10
+                        spacing: 12
 
                         Rectangle {
                             Layout.preferredWidth: 40
@@ -476,7 +513,7 @@ Item {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: root.iconForItem(root.selectedItem())
+                                text: root.iconForItem(previewPanel.currentItem)
                                 font.family: "Material Symbols Rounded"
                                 font.pixelSize: 21
                                 color: Colorscheme.on_primary_container
@@ -488,16 +525,16 @@ Item {
                             spacing: 2
 
                             Text {
-                                text: root.selectedItem() ? root.selectedItem().summary : "Preview"
+                                text: previewPanel.currentItem ? previewPanel.currentItem.summary : "Preview"
                                 color: Colorscheme.on_surface
-                                font.pixelSize: 16
+                                font.pixelSize: 15
                                 font.bold: true
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
 
                             Text {
-                                text: root.selectedItem() ? root.labelForItem(root.selectedItem()) : "Clipboard"
+                                text: previewPanel.currentItem ? root.labelForItem(previewPanel.currentItem) : "Clipboard"
                                 color: Colorscheme.on_surface_variant
                                 font.pixelSize: 12
                                 font.family: "JetBrains Mono Nerd Font"
@@ -507,86 +544,145 @@ Item {
                         }
                     }
 
+                    // 附加详细规格描述（如 100.9 KiB | image/jpeg）
                     Text {
                         Layout.fillWidth: true
-                        visible: root.selectedItem() && root.selectedItem().detailMeta !== ""
-                        text: root.selectedItem() ? root.selectedItem().detailMeta : ""
+                        visible: previewPanel.currentItem && previewPanel.currentItem.detailMeta !== ""
+                        text: previewPanel.currentItem ? previewPanel.currentItem.detailMeta : ""
                         color: Colorscheme.on_surface_variant
-                        font.pixelSize: 12
+                        font.pixelSize: 11
                         wrapMode: Text.WordWrap
                     }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.selectedItem() && root.selectedItem().previewPath ? 220 : 0
-                        visible: root.selectedItem() && root.selectedItem().previewPath
-                        radius: 16
-                        color: Qt.rgba(Colorscheme.inverse_surface.r, Colorscheme.inverse_surface.g, Colorscheme.inverse_surface.b, 0.10)
-                        border.width: 1
-                        border.color: Colorscheme.glass_outline
-                        clip: true
-
-                        Image {
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            fillMode: Image.PreserveAspectFit
-                            asynchronous: true
-                            source: root.selectedItem() ? root.selectedItem().previewPath : ""
-                        }
-                    }
-
-                    Rectangle {
+                    // --- 2. 核心内容沙盒区（吃掉所有剩余空间，三者互斥显示） ---
+                    Item {
+                        id: contentSandbox
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: 16
-                        color: Qt.rgba(Colorscheme.inverse_surface.r, Colorscheme.inverse_surface.g, Colorscheme.inverse_surface.b, 0.06)
-                        border.width: 1
-                        border.color: Colorscheme.glass_outline
+                        clip: true
 
-                        ScrollView {
+                        // 🟢 【场景 A：图像专属容器】
+                        Rectangle {
                             anchors.fill: parent
-                            anchors.margins: 12
+                            visible: previewPanel.currentItem && previewPanel.currentItem.type === "image" && !!previewPanel.currentItem.previewPath
+                            radius: 14
+                            color: Qt.rgba(Colorscheme.inverse_surface.r, Colorscheme.inverse_surface.g, Colorscheme.inverse_surface.b, 0.10)
+                            border.width: 1
+                            border.color: Colorscheme.glass_outline
                             clip: true
-                            visible: root.selectedItem() && root.selectedItem().previewText !== ""
 
-                            Text {
-                                width: parent.width
-                                text: root.selectedItem() ? root.selectedItem().previewText : ""
-                                color: Colorscheme.on_surface
-                                font.pixelSize: 13
-                                font.family: "JetBrains Mono Nerd Font"
-                                textFormat: Text.PlainText
-                                wrapMode: Text.Wrap
+                            Image {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: true
+                                source: (previewPanel.currentItem && previewPanel.currentItem.previewPath) ? previewPanel.currentItem.previewPath : ""
                             }
                         }
 
-                        ColumnLayout {
+                        // 🟢 【场景 B：纯文本长预览容器】
+                        Rectangle {
                             anchors.fill: parent
-                            anchors.margins: 16
-                            visible: !root.selectedItem() || root.selectedItem().previewText === ""
-                            spacing: 8
+                            visible: previewPanel.currentItem && previewPanel.currentItem.type !== "image" && previewPanel.currentItem.previewText !== ""
+                            radius: 14
+                            color: Qt.rgba(Colorscheme.inverse_surface.r, Colorscheme.inverse_surface.g, Colorscheme.inverse_surface.b, 0.06)
+                            border.width: 1
+                            border.color: Colorscheme.glass_outline
 
-                            Item { Layout.fillHeight: true }
+                            ScrollView {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                clip: true
+
+                                Text {
+                                    width: parent.width
+                                    text: previewPanel.currentItem ? previewPanel.currentItem.previewText : ""
+                                    color: Colorscheme.on_surface
+                                    font.pixelSize: 13
+                                    font.family: "JetBrains Mono Nerd Font"
+                                    textFormat: Text.PlainText
+                                    wrapMode: Text.Wrap
+                                }
+                            }
+                        }
+
+                        // 🟢 【场景 C：无详细内容时的中央大图标兜底】
+                        ColumnLayout {
+                            anchors.centerIn: parent
+                            visible: previewPanel.currentItem && 
+                                     !(previewPanel.currentItem.type === "image" && previewPanel.currentItem.previewPath) && 
+                                     !(previewPanel.currentItem.type !== "image" && previewPanel.currentItem.previewText !== "")
+                            spacing: 12
 
                             Text {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: root.iconForItem(root.selectedItem())
+                                text: root.iconForItem(previewPanel.currentItem)
                                 font.family: "Material Symbols Rounded"
-                                font.pixelSize: 42
-                                color: Colorscheme.primary
+                                font.pixelSize: 48
+                                color: Qt.alpha(Colorscheme.primary, 0.5)
                             }
 
                             Text {
                                 Layout.alignment: Qt.AlignHCenter
                                 Layout.fillWidth: true
                                 horizontalAlignment: Text.AlignHCenter
-                                text: root.selectedItem() ? (root.selectedItem().sourcePath || root.selectedItem().subtitle) : "Select an item"
+                                text: previewPanel.currentItem ? (previewPanel.currentItem.sourcePath || previewPanel.currentItem.subtitle) : ""
                                 color: Colorscheme.on_surface_variant
-                                font.pixelSize: 12
+                                font.pixelSize: 11
                                 wrapMode: Text.WordWrap
                             }
+                        }
+                    }
 
-                            Item { Layout.fillHeight: true }
+                    // --- 3. 底栏：微信/QQ 多 MIME 伴生源精致挂件 ---
+                    Rectangle {
+                        Layout.fillWidth: true
+                        visible: !!previewPanel.currentItem && !!previewPanel.currentItem.hasExtraMime
+                        Layout.preferredHeight: visible ? extraMimeColumn.implicitHeight + 16 : 0
+                        radius: 12
+                        color: Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.08)
+                        border.width: 1
+                        border.color: Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.15)
+                        clip: true
+
+                        ColumnLayout {
+                            id: extraMimeColumn
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 4
+
+                            RowLayout {
+                                spacing: 6
+                                Text {
+                                    text: "link"
+                                    font.family: "Material Symbols Rounded"
+                                    font.pixelSize: 13
+                                    color: Colorscheme.primary
+                                }
+                                Text {
+                                    text: "微信/QQ 伴生元数据"
+                                    color: Colorscheme.primary
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                }
+                            }
+
+                            Text {
+                                visible: !!previewPanel.currentItem && previewPanel.currentItem.associatedPath !== ""
+                                text: previewPanel.currentItem ? previewPanel.currentItem.associatedPath : ""
+                                color: Colorscheme.on_surface_variant
+                                font.pixelSize: 11
+                                font.family: "JetBrains Mono Nerd Font"
+                                elide: Text.ElideMiddle 
+                                Layout.fillWidth: true
+                            }
+
+                            Text {
+                                visible: !!previewPanel.currentItem && !!previewPanel.currentItem.extraMimeType
+                                text: previewPanel.currentItem ? ("源头封装格式: " + previewPanel.currentItem.extraMimeType) : ""
+                                color: Colorscheme.on_surface_variant
+                                font.pixelSize: 10
+                            }
                         }
                     }
                 }

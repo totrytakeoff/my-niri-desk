@@ -19,10 +19,16 @@ from pathlib import Path
 import tomllib
 
 
+# 优先使用 my-desk 中心配置的状态目录
+_DESK_STATE_DIR = os.environ.get(
+    "DESK_STATE_DIR",
+    str(Path.home() / ".local/state/my-desk"),
+)
+
 CONFIG_PATH = Path.home() / ".config/niri/session-restore.toml"
 DEFAULTS = {
     "enabled": True,
-    "state_file": "~/.local/state/niri-session/last-session.json",
+    "state_file": os.path.join(_DESK_STATE_DIR, "niri-session", "last-session.json"),
     "restore_delay_seconds": 6.0,
     "watch_startup_grace_seconds": 45.0,
     "watch_use_event_stream": True,

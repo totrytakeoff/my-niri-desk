@@ -125,7 +125,7 @@ Item {
 
     Process {
         id: snapshotProc
-        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/scripts/session_snapshot.py"]
+        command: ["desk-run", "session-snapshot"]
         stdout: SplitParser {
             onRead: (data) => {
                 try {

@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# desk-run — my-desk 统一调度入口
+# 所有工具通过此入口调用
+#
+# 用法: desk-run <tool-name> [args...]
+#
+set -euo pipefail
+
+# Source 中心配置（获取路径变量，同时将 DESK_BIN_DIR 加入 PATH）
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [[ -L "${SCRIPT_PATH}" ]]; do
+  SCRIPT_DIR="$(cd -P "$(dirname "${SCRIPT_PATH}")" && pwd)"
+  LINK_TARGET="$(readlink "${SCRIPT_PATH}")"
+  [[ "${LINK_TARGET}" == /* ]] && SCRIPT_PATH="${LINK_TARGET}" || SCRIPT_PATH="${SCRIPT_DIR}/${LINK_TARGET}"
+done
+
+SCRIPT_DIR="$(cd -P "$(dirname "${SCRIPT_PATH}")" && pwd)"
+USER_DESK_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/my-desk"
+
+if [[ -z "${DESK_CONFIG_DIR:-}" && -f "${USER_DESK_CONFIG_DIR}/desk-env.sh" ]]; then
+  DESK_CONFIG_DIR="${USER_DESK_CONFIG_DIR}"
+else
+  DESK_CONFIG_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+# shellcheck source=../desk-env.sh
+source "${DESK_CONFIG_DIR}/desk-env.sh"
+
+# 确保目录存在
+ensure_desk_dirs
+
+TOOL_DIR="${DESK_BIN_DIR}"
+
+# ============================================================
+# 工具路由
+# ============================================================
+tool="$1"
+shift || { echo "Usage: desk-run <tool-name> [args...]" >&2; exit 1; }
+
+case "${tool}" in
+  # ---- 截图 ----
+  screenshot-area)   exec bash "${TOOL_DIR}/screenshot-area.sh" "$@" ;;
+  screenshot-screen) exec bash "${TOOL_DIR}/screenshot-screen.sh" "$@" ;;
+  screenshot-ocr)    exec bash "${TOOL_DIR}/screenshot-ocr.sh" "$@" ;;
+
+  # ---- 录屏 / GIF / 录音 ----
+  record)  exec bash "${TOOL_DIR}/record.sh" "$@" ;;
+
+  # ---- 壁纸 ----
+  overview) exec bash "${TOOL_DIR}/overview.sh" "$@" ;;
+
+  # ---- 会话管理 ----
+  session-save)    exec python3 "${TOOL_DIR}/niri-session.py" save "$@" ;;
+  session-restore) exec python3 "${TOOL_DIR}/niri-session.py" restore "$@" ;;
+  session-watch)   exec python3 "${TOOL_DIR}/niri-session.py" watch "$@" ;;
+  session-status)  exec python3 "${TOOL_DIR}/niri-session.py" status "$@" ;;
+
+  # ---- 剪贴板 ----
+  clipboard-watch)  exec bash "${TOOL_DIR}/clipboard_watch.sh" "$@" ;;
+  clipboard-bridge) exec python3 "${TOOL_DIR}/clipboard_bridge.py" "$@" ;;
+  clipboard-sync)   exec python3 "${TOOL_DIR}/clipboard_sync.py" "$@" ;;
+
+  # ---- 系统监控 ----
+  sys-monitor)       exec python3 "${TOOL_DIR}/sys_monitor.py" "$@" ;;
+  sys-details)       exec python3 "${TOOL_DIR}/sys_details.py" "$@" ;;
+  process-overview)  exec python3 "${TOOL_DIR}/process_overview.py" "$@" ;;
+  session-snapshot)  exec python3 "${TOOL_DIR}/session_snapshot.py" "$@" ;;
+
+  # ---- 通知历史 ----
+  notify-db) exec python3 "${TOOL_DIR}/notify_db.py" "$@" ;;
+
+  # ---- 音频可视化 ----
+  wave) exec bash "${TOOL_DIR}/wave.sh" "$@" ;;
+  cava) exec bash "${TOOL_DIR}/cava.sh" "$@" ;;
+
+  # ---- 歌词 ----
+  lyrics) exec python3 "${TOOL_DIR}/lyrics_fetcher.py" "$@" ;;
+
+  # ---- 天气 ----
+  weather) exec python3 "${TOOL_DIR}/weather.py" "$@" ;;
+
+  # ---- 未知 ----
+  *)
+    echo "desk-run: unknown tool '${tool}'" >&2
+    echo "Available tools:" >&2
+    echo "  screenshot-{area,screen,ocr} record overview" >&2
+    echo "  session-{save,restore,watch,status}" >&2
+    echo "  clipboard-{watch,bridge,sync} sys-{monitor,details}" >&2
+    echo "  process-overview session-snapshot notify-db" >&2
+    echo "  wave cava lyrics weather" >&2
+    exit 1
+    ;;
+esac

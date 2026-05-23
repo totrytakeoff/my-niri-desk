@@ -169,7 +169,7 @@ Item {
         // 2. 为 matugen 加上 --source-color-index 0
         let scriptContent = "awww img '" + currentPath + "' --transition-type any --transition-duration 3 --transition-fps 60 --transition-bezier .43,1.19,1,.4;\n" +
                             "matugen image '" + currentPath + "' --source-color-index 0;\n" +
-                            "bash '" + home + "/.config/quickshell/scripts/overview.sh' '" + currentPath + "'"
+                            "desk-run overview '" + currentPath + "'"
                            
         runScript.command = ["bash", "-c", scriptContent]
         runScript.running = true

@@ -220,6 +220,28 @@ def uri_list_bytes(paths: list[Path]) -> bytes:
     return ("\r\n".join(lines) + "\r\n").encode("utf-8")
 
 
+def plain_path_bytes(paths: list[Path]) -> bytes:
+    return "\n".join(str(path) for path in paths).encode("utf-8")
+
+
+def file_path_format(preview: str) -> str:
+    return "uri" if preview.strip().startswith("file://") else "plain"
+
+
+def transformed_file_mime(path_format: str) -> str:
+    return "text/plain" if path_format == "uri" else "text/uri-list"
+
+
+def transformed_file_bytes(paths: list[Path], path_format: str) -> bytes:
+    if path_format == "uri":
+        return plain_path_bytes(paths)
+    return uri_list_bytes(paths)
+
+
+def copy_path_payload(path: Path) -> str:
+    return b64_json({"mode": "copy-path", "path": str(path)})
+
+
 def build_file_item(
     item: dict,
     item_id: str,
@@ -230,11 +252,8 @@ def build_file_item(
     first = paths[0]
     kind = file_kind(first)
     summary, subtitle = summarize_file_list(paths)
-    payload = {
-        "mode": "file-list",
-        "paths": [str(path) for path in paths],
-        "kind": kind,
-    }
+    path_format = file_path_format(line.split("\t", 1)[1] if "\t" in line else line)
+    original_mime = "text/uri-list" if path_format == "uri" else "text/plain"
 
     item.update(
         {
@@ -242,9 +261,19 @@ def build_file_item(
             "summary": summary,
             "subtitle": subtitle,
             "sourcePath": str(first),
-            "payload": b64_json(payload),
-            "mimeType": "text/uri-list",
+            "payload": b64_json({"mode": "cliphist", "line": line, "mime_type": original_mime}),
+            "transformPayload": b64_json(
+                {
+                    "mode": "file-transform",
+                    "paths": [str(path) for path in paths],
+                    "from_format": path_format,
+                    "raw": item["raw"],
+                }
+            ),
+            "mimeType": original_mime,
             "fileKind": kind,
+            "filePathFormat": path_format,
+            "canTransform": True,
             "detailMeta": detail_meta_for_path(first, kind),
         }
     )
@@ -260,6 +289,9 @@ def build_file_item(
                 "previewPath": cached.as_uri() if cached.exists() else first.as_uri(),
                 "mimeType": mime_type,
                 "detailMeta": detail_meta_for_path(first, kind),
+                "filePathFormat": "",
+                "canTransform": True,
+                "transformPayload": copy_path_payload(first),
                 "payload": b64_json(
                     {
                         "mode": "image-file",
@@ -365,6 +397,9 @@ def build_item(item_id: str, preview: str, line: str, index: int) -> dict:
         "payload": "",
         "mimeType": "text/plain",
         "fileKind": "",
+        "filePathFormat": "",
+        "canTransform": False,
+        "transformPayload": "",
         "previewText": "",
         "detailMeta": "",
     }
@@ -372,8 +407,10 @@ def build_item(item_id: str, preview: str, line: str, index: int) -> dict:
     if image_meta:
         image_bytes = cliphist_decode_bytes(line)
         preview_path = ""
+        cached_path = None
         if image_bytes:
             cached = cache_image_bytes(key, f".{image_meta['format']}", image_bytes)
+            cached_path = cached
             preview_path = cached.as_uri()
         item.update(
             {
@@ -381,8 +418,11 @@ def build_item(item_id: str, preview: str, line: str, index: int) -> dict:
                 "summary": f"{image_meta['width']} x {image_meta['height']}",
                 "subtitle": f"{image_meta['format'].upper()} {image_meta['size']}" + (f" #{item_id}" if item_id else ""),
                 "previewPath": preview_path,
+                "sourcePath": str(cached_path) if cached_path else "",
                 "mimeType": image_meta["mime_type"],
                 "detailMeta": f"{image_meta['format'].upper()} | {image_meta['width']} x {image_meta['height']} | {image_meta['size']}",
+                "canTransform": cached_path is not None,
+                "transformPayload": copy_path_payload(cached_path) if cached_path else "",
                 "payload": b64_json(
                     {
                         "mode": "cliphist",
@@ -437,6 +477,32 @@ def build_item(item_id: str, preview: str, line: str, index: int) -> dict:
     return item
 
 
+def _merge_pair(img: dict, src: dict) -> dict:
+    if img["type"] != "image":
+        img, src = src, img
+    extra = {
+        "type": src["type"],
+        "summary": src.get("summary", ""),
+        "subtitle": src.get("subtitle", ""),
+        "sourcePath": src.get("sourcePath", ""),
+        "mimeType": src.get("mimeType", ""),
+        "fileKind": src.get("fileKind", ""),
+        "detailMeta": src.get("detailMeta", ""),
+        "previewText": src.get("previewText", ""),
+    }
+    merged = dict(img)
+    merged["extraMime"] = extra
+    merged["raw"] = b64_json([img.get("raw", ""), src.get("raw", "")])
+    if not merged.get("sourcePath") and src.get("sourcePath"):
+        merged["sourcePath"] = src["sourcePath"]
+        
+    # ✨ 【重构拓展】直接向 QML 根节点暴露的高价值拓展字段
+    merged["hasExtraMime"] = True
+    merged["extraMimeType"] = src.get("mimeType", "text/plain")
+    merged["associatedPath"] = src.get("sourcePath", "") or src.get("summary", "")
+    return merged
+
+
 def list_items() -> int:
     if not command_exists("cliphist"):
         print(json.dumps({"ok": False, "error": "cliphist is not installed", "items": []}, ensure_ascii=False))
@@ -458,7 +524,75 @@ def list_items() -> int:
             item_id, preview = "", line
         items.append(build_item(item_id, preview, line, idx))
 
-    print(json.dumps({"ok": True, "error": "", "items": items}, ensure_ascii=False))
+    # 🛠️ 【微信专项修复】非破坏性、时序无关的双向滑动窗口合并算法
+    swallowed_indices = set()
+    
+    for i in range(len(items)):
+        if items[i]["type"] == "image":
+            img_id_str = items[i]["id"]
+            if not img_id_str.isdigit():
+                continue
+            img_id = int(img_id_str)
+            
+            best_match_idx = None
+            start_win = max(0, i - 3)
+            end_win = min(len(items), i + 4)
+            
+            for j in range(start_win, end_win):
+                if i == j or j in swallowed_indices:
+                    continue
+                candidate = items[j]
+                
+                # 判定当前项是否为合法的“伴生候选者”
+                is_valid_candidate = False
+                
+                if candidate["type"] in ("text", "file", "link"):
+                    is_valid_candidate = True
+                elif candidate["type"] == "image":
+                    # 🎯 核心修复点：如果候选条目也是 image，但它是从本地路径解析出来的（WeChat 缓存图）
+                    # 且当前项是真正的剪切板二进制图，则必须要允许它们合并！
+                    try:
+                        current_mode = decode_payload(items[i]["payload"]).get("mode")
+                        cand_mode = decode_payload(candidate["payload"]).get("mode")
+                        if current_mode == "cliphist" and cand_mode == "image-file":
+                            is_valid_candidate = True
+                    except Exception:
+                        pass
+                
+                if is_valid_candidate:
+                    cand_id_str = candidate["id"]
+                    if not cand_id_str.isdigit():
+                        continue
+                    cand_id = int(cand_id_str)
+                    
+                    # 临近条件：SQLite 内批处理生成的 ID 差绝对值不超过 2
+                    if abs(img_id - cand_id) <= 2:
+                        # 特征过滤：如果是转产的 image 默认放行，文本则继续严查路径/HTML特征
+                        has_feature = (
+                            candidate["type"] in ("file", "link", "image") or
+                            candidate["summary"].startswith("/") or
+                            candidate["summary"].startswith("~/") or
+                            "file://" in candidate["summary"] or
+                            "http" in candidate["summary"].lower() or
+                            "<html" in candidate["summary"].lower()  # 顺便完美兼容 QQ 的 HTML 容器
+                        )
+                        if has_feature:
+                            best_match_idx = j
+                            break
+            
+            # 成功抓取到同源伴生数据，进行软合并
+            if best_match_idx is not None:
+                items[i] = _merge_pair(items[i], items[best_match_idx])
+                swallowed_indices.add(best_match_idx)
+
+    # 导出最终展现列表
+    merged = []
+    for idx, item in enumerate(items):
+        if idx in swallowed_indices:
+            continue
+        merged.append(item)
+
+    print(json.dumps({"ok": True, "error": "", "items": merged}, ensure_ascii=False))
     return 0
 
 
@@ -532,6 +666,39 @@ def copy_item(payload_b64: str) -> int:
     return 1
 
 
+def transform_file_item(payload_b64: str) -> int:
+    payload = decode_payload(payload_b64)
+    if payload.get("mode") == "copy-path":
+        path = Path(payload.get("path", ""))
+        if not path.exists():
+            print("Image path is no longer available", file=sys.stderr)
+            return 1
+        return wl_copy_bytes(str(path).encode("utf-8"), "text/plain")
+
+    if payload.get("mode") != "file-transform":
+        print("Unknown file transform payload", file=sys.stderr)
+        return 1
+
+    paths = [Path(path) for path in payload.get("paths", [])]
+    existing = [path for path in paths if path.exists()]
+    if not existing:
+        print("File items are no longer available", file=sys.stderr)
+        return 1
+
+    from_format = payload.get("from_format", "plain")
+    copied = wl_copy_bytes(transformed_file_bytes(existing, from_format), transformed_file_mime(from_format))
+    if copied != 0:
+        return copied
+
+    # Give cliphist's wl-paste watcher a moment to store the transformed form
+    # before removing the original raw entry from history.
+    time.sleep(0.25)
+    raw = payload.get("raw")
+    if raw:
+        return delete_item(raw)
+    return 0
+
+
 def paste_item(payload_b64: str) -> int:
     copied = copy_item(payload_b64)
     if copied != 0:
@@ -585,16 +752,26 @@ def delete_item(raw_b64: str) -> int:
         print("cliphist is not installed", file=sys.stderr)
         return 1
 
-    raw = decode_raw(raw_b64)
-    deleted = subprocess.run(
-        ["cliphist", "delete"],
-        input=raw + "\n",
-        text=True,
-        stderr=subprocess.PIPE,
-    )
-    if deleted.returncode != 0:
-        sys.stderr.write(deleted.stderr)
-    return deleted.returncode
+    raw_str = decode_raw(raw_b64)
+    lines: list[str] = json.loads(raw_str) if raw_str.startswith("[") else [raw_str]
+    for line in lines:
+        # 🩹【自愈修复】合并卡片的 raw 列表提取出来是 base64，需要进行二次安全解码，防丢防漏
+        actual_line = line
+        if "\t" not in actual_line:
+            try:
+                actual_line = decode_raw(actual_line)
+            except Exception:
+                pass
+
+        deleted = subprocess.run(
+            ["cliphist", "delete"],
+            input=actual_line + "\n",
+            text=True,
+            stderr=subprocess.PIPE,
+        )
+        if deleted.returncode != 0:
+            sys.stderr.write(deleted.stderr)
+    return 0
 
 
 def wipe_items() -> int:
@@ -617,7 +794,7 @@ def wipe_items() -> int:
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("usage: clipboard_bridge.py [list|copy|paste|delete|wipe]", file=sys.stderr)
+        print("usage: clipboard_bridge.py [list|copy|paste|transform-file|delete|wipe]", file=sys.stderr)
         return 2
 
     command = sys.argv[1]
@@ -627,6 +804,8 @@ def main() -> int:
         return copy_item(sys.argv[2])
     if command == "paste" and len(sys.argv) == 3:
         return paste_item(sys.argv[2])
+    if command == "transform-file" and len(sys.argv) == 3:
+        return transform_file_item(sys.argv[2])
     if command == "delete" and len(sys.argv) == 3:
         return delete_item(sys.argv[2])
     if command == "wipe":

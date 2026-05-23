@@ -25,7 +25,7 @@ Rectangle {
     Process {
         id: monitorProc
         // 确保调用的是 python3 且路径正确
-        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/scripts/sys_monitor.py"]
+        command: ["desk-run", "sys-monitor"]
         running: true 
         
         stdout: SplitParser {
