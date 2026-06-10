@@ -10,9 +10,13 @@ What it does:
   - Installs niri/quickshell/fcitx5/hyprlock/fuzzel/mako config
   - Replaces user-specific placeholders such as @HOME@
   - Creates required runtime directories
+  - Enables the user quickshell.service
 
 After applying:
   Log out, choose the `Niri` session, and log back in.
+
+Optional desktop OOM policy:
+  sudo configure-desktop-oomd --apply
 EOF
 }
 

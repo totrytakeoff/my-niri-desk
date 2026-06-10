@@ -13,6 +13,9 @@ filters=()
 managed_paths=(
   ".config/niri"
   ".config/quickshell"
+  ".config/systemd/user/quickshell.service"
+  ".config/systemd/user/app.slice.d"
+  ".config/systemd/user/background.slice.d"
   ".config/my-desk"
   ".config/fcitx5"
   ".config/hypr"
@@ -67,6 +70,9 @@ path_excludes() {
   case "${rel}" in
     ".config/niri")
       printf '%s\n' "__pycache__"
+      ;;
+    ".config/my-desk")
+      printf '%s\n' "__pycache__" "*.pyc"
       ;;
     ".config/quickshell")
       printf '%s\n' "__pycache__"

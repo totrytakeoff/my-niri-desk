@@ -452,7 +452,7 @@ WidgetPanel {
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: Quickshell.execDetached(["gnome-control-center", "network"])
+                        onClicked: Quickshell.execDetached(["desk-app-run", "--", "gnome-control-center", "network"])
                     }
                 }
             }

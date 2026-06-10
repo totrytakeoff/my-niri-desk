@@ -28,6 +28,7 @@ backup_if_exists() {
 for rel in \
   ".config/niri" \
   ".config/quickshell" \
+  ".config/systemd/user" \
   ".config/wallpaper" \
   ".config/fcitx5" \
   ".config/hypr" \
@@ -50,6 +51,9 @@ fi
 find "${HOME}/.config/my-desk" -type f -exec chmod +x {} + 2>/dev/null || true
 find "${HOME}/.config/niri/scripts" -type f -exec chmod +x {} + 2>/dev/null || true
 find "${HOME}/.config/quickshell/scripts" -type f -exec chmod +x {} + 2>/dev/null || true
+
+systemctl --user daemon-reload >/dev/null 2>&1 || true
+systemctl --user enable quickshell.service >/dev/null 2>&1 || true
 
 sed -i "s|@HOME@|${HOME}|g" "${HOME}/.config/hypr/hyprlock.conf"
 

@@ -333,7 +333,7 @@ Item {
                 tip: "Open power menu"
                 bgColor: Qt.alpha(Colorscheme.error_container, 0.78)
                 fgColor: Colorscheme.on_error_container
-                onClicked: Quickshell.execDetached(["wlogout", "-p", "layer-shell", "-b", "2"])
+                onClicked: Quickshell.execDetached(["desk-app-run", "--", "wlogout", "-p", "layer-shell", "-b", "2"])
             }
         }
     }

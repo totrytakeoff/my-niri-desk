@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+
+import argparse
+import configparser
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+
+FIELD_CODE_RE = re.compile(r"%[fFuUdDnNickvm]")
+
+
+def desktop_entry_paths() -> list[tuple[Path, str]]:
+    paths: list[tuple[Path, str]] = []
+    seen_ids: set[str] = set()
+
+    def add_application_dir(app_dir: Path) -> None:
+        if not app_dir.is_dir():
+            return
+        for path in sorted(app_dir.rglob("*.desktop")):
+            try:
+                desktop_id = "-".join(path.relative_to(app_dir).parts)
+            except ValueError:
+                desktop_id = path.name
+            desktop_id_cf = desktop_id.casefold()
+            if desktop_id_cf in seen_ids:
+                continue
+            seen_ids.add(desktop_id_cf)
+            paths.append((path, desktop_id))
+
+    data_home = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
+    add_application_dir(data_home / "applications")
+
+    data_dirs = os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
+    for data_dir in data_dirs.split(":"):
+        if data_dir:
+            add_application_dir(Path(data_dir) / "applications")
+    return paths
+
+
+def sanitize_exec(exec_line: str) -> list[str]:
+    tokens = shlex.split(exec_line, posix=True)
+    command: list[str] = []
+    for token in tokens:
+        cleaned = FIELD_CODE_RE.sub("", token).strip()
+        if cleaned:
+            command.append(cleaned)
+    return command
+
+
+def load_entries(include_no_display: bool = False) -> list[dict]:
+    entries: list[dict] = []
+    seen: set[Path] = set()
+    for path, desktop_id in desktop_entry_paths():
+        if path in seen:
+            continue
+        seen.add(path)
+
+        cp = configparser.ConfigParser(interpolation=None)
+        try:
+            cp.read(path, encoding="utf-8")
+        except Exception:
+            continue
+        if "Desktop Entry" not in cp:
+            continue
+
+        sec = cp["Desktop Entry"]
+        if sec.getboolean("Hidden", fallback=False):
+            continue
+        no_display = sec.getboolean("NoDisplay", fallback=False)
+        if no_display and not include_no_display:
+            continue
+        exec_line = sec.get("Exec")
+        if not exec_line:
+            continue
+        command = sanitize_exec(exec_line)
+        if not command:
+            continue
+
+        entries.append(
+            {
+                "path": path,
+                "desktop_id": desktop_id,
+                "stem": path.stem,
+                "desktop_file": path.name,
+                "name": sec.get("Name") or path.stem,
+                "startup_wm_class": sec.get("StartupWMClass") or "",
+                "no_display": no_display,
+                "command": command,
+            }
+        )
+    return entries
+
+
+def executable_name(command: list[str]) -> str:
+    if not command:
+        return ""
+    if command[0] == "env":
+        for token in command[1:]:
+            if "=" not in token:
+                return Path(token).name
+        return ""
+    return Path(command[0]).name
+
+
+def resolve_command(name: str | None, desktop: str | None) -> list[str] | None:
+    entries = load_entries(include_no_display=bool(desktop))
+    visible_entries = [entry for entry in entries if not entry["no_display"]]
+    candidates = [value.casefold() for value in (desktop, name) if value]
+
+    for key in [value.casefold() for value in (desktop,) if value]:
+        for entry in entries:
+            if key in (
+                entry["desktop_id"].casefold(),
+                entry["desktop_file"].casefold(),
+                entry["stem"].casefold(),
+            ):
+                return entry["command"]
+
+    for key in [value.casefold() for value in (desktop,) if value]:
+        leaf = key.removesuffix(".desktop").split(".")[-1]
+        for entry in entries:
+            if leaf == entry["stem"].casefold().split(".")[-1]:
+                return entry["command"]
+
+    for key in candidates:
+        for entry in visible_entries:
+            if key in (
+                entry["desktop_id"].casefold(),
+                entry["desktop_file"].casefold(),
+                entry["stem"].casefold(),
+            ):
+                return entry["command"]
+
+    for key in candidates:
+        leaf = key.removesuffix(".desktop").split(".")[-1]
+        for entry in visible_entries:
+            if leaf == entry["stem"].casefold().split(".")[-1]:
+                return entry["command"]
+
+    for key in candidates:
+        for entry in visible_entries:
+            if key == entry["startup_wm_class"].casefold():
+                return entry["command"]
+
+    for key in candidates:
+        for entry in visible_entries:
+            if key == entry["name"].casefold():
+                return entry["command"]
+
+    for key in candidates:
+        for entry in visible_entries:
+            if key == executable_name(entry["command"]).casefold():
+                return entry["command"]
+
+    for value in (desktop, name):
+        if not value:
+            continue
+        fallback = shutil.which(value)
+        if fallback:
+            return [fallback]
+        leaf = value.split(".")[-1]
+        fallback = shutil.which(leaf)
+        if fallback:
+            return [fallback]
+
+    return None
+
+
+def unit_token(command: list[str], name: str | None, desktop: str | None) -> str:
+    raw = desktop or name or executable_name(command) or "app"
+    raw = raw.removesuffix(".desktop").split(".")[-1]
+    token = re.sub(r"[^A-Za-z0-9_.-]+", "-", raw).strip("-._")
+    return token[:36] or "app"
+
+
+def run_scoped(command: list[str], name: str | None, desktop: str | None) -> int:
+    unit = f"desk-app-{unit_token(command, name, desktop)}-{int(time.time())}-{os.getpid()}"
+    systemd_cmd = [
+        "systemd-run",
+        "--user",
+        "--collect",
+        "--no-block",
+        "--quiet",
+        f"--unit={unit}",
+        "-p",
+        "MemoryAccounting=yes",
+        "-p",
+        "OOMPolicy=kill",
+        "-p",
+        "Type=exec",
+        "--",
+        *command,
+    ]
+    return subprocess.run(systemd_cmd).returncode
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Launch desktop apps in their own user systemd scope")
+    parser.add_argument("--name", help="Desktop entry Name/app id/executable name to resolve")
+    parser.add_argument("--desktop", help="Desktop file id/name to resolve")
+    parser.add_argument("command", nargs=argparse.REMAINDER, help="Command after --")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    command = args.command
+    if command and command[0] == "--":
+        command = command[1:]
+
+    if not command:
+        resolved = resolve_command(args.name, args.desktop)
+        if not resolved:
+            print(
+                f"desk-app-run: unable to resolve app name={args.name!r} desktop={args.desktop!r}",
+                file=sys.stderr,
+            )
+            return 127
+        command = resolved
+
+    return run_scoped(command, args.name, args.desktop)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

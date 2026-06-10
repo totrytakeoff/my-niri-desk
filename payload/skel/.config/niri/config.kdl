@@ -147,7 +147,7 @@ spawn-at-startup "fcitx5"
 // spawn-at-startup "mako"
 // 原来的通知守护进程。切到 QuickShell 后先停用，避免和它自己的通知服务器抢占。
 
-spawn-at-startup "quickshell"
+spawn-at-startup "systemctl" "--user" "start" "quickshell.service"
 // 顶栏 / 启动器 / 锁屏 / 侧边栏现在统一交给 QuickShell。
 // QuickShell 会自动读取 ~/.config/quickshell/shell.qml。
 
@@ -306,8 +306,8 @@ binds {
 
     // 应用启动
     // -----------------------------------------------------------------------
-    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn "kitty"; }
-    Ctrl+Alt+T { spawn "kitty"; }
+    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" --desktop kitty.desktop"; }
+    Ctrl+Alt+T { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" --desktop kitty.desktop"; }
     // 同时保留 Super+T 和你原来 GNOME 习惯里的 Ctrl+Alt+T。
 
     Mod+D hotkey-overlay-title="Toggle Launcher: quickshell" { spawn "quickshell" "ipc" "call" "launcher" "toggle"; }
@@ -326,10 +326,10 @@ binds {
     Super+Alt+L hotkey-overlay-title="Lock the Screen: quickshell" { spawn "quickshell" "ipc" "call" "lock" "open"; }
     // QuickShell 自带锁屏模块；现在直接调用它，而不是 hyprlock。
 
-    Mod+F2 hotkey-overlay-title="Restart QuickShell" { spawn-sh "pkill quickshell || true && quickshell"; }
+    Mod+F2 hotkey-overlay-title="Restart QuickShell" { spawn "systemctl" "--user" "restart" "quickshell.service"; }
     // QuickShell 调样式时很常用的重启键，照着参考仓库保留。
 
-    Mod+N { spawn "nautilus" "--new-window"; }
+    Mod+N { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" --desktop org.gnome.Nautilus.desktop"; }
     // 文件管理器。
 
     // 音量与媒体键
@@ -410,8 +410,13 @@ binds {
     Mod+Alt+Page_Up   { move-column-to-workspace-up; }
     Mod+Alt+Page_Down { move-column-to-workspace-down; }
 
+    //
     Mod+Ctrl+Page_Up {move-workspace-up; }
     Mod+Ctrl+Page_Down {move-workspace-down; }
+
+    //
+    Mod+Ctrl+Shift+Left {move-workspace-to-monitor-left;}
+    Mod+Ctrl+Shift+Right {move-workspace-to-monitor-right;}
 
 
 

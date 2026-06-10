@@ -14,7 +14,7 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
-        onClicked: Quickshell.execDetached(["wlogout", "-p", "layer-shell", "-b", "2"])
+        onClicked: Quickshell.execDetached(["desk-app-run", "--", "wlogout", "-p", "layer-shell", "-b", "2"])
     }
 
     Text {

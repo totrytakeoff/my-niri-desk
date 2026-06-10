@@ -70,6 +70,7 @@ package() {
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
 
   install -m755 "${startdir}/scripts/my-niri-desk-apply" "${pkgdir}/usr/bin/my-niri-desk-apply"
+  install -m755 "${startdir}/scripts/configure-desktop-oomd.sh" "${pkgdir}/usr/bin/configure-desktop-oomd"
   ln -s "/usr/share/${pkgname}/skel/.config/my-desk/bin/desk-run" "${pkgdir}/usr/bin/desk-run"
 
   cp -a "${startdir}/payload/skel" "${pkgdir}/usr/share/${pkgname}/"
@@ -80,11 +81,15 @@ package() {
   cat > "${pkgdir}/usr/share/doc/${pkgname}/README.packaging" <<'EOF'
 This package installs:
 - /usr/bin/my-niri-desk-apply
+- /usr/bin/configure-desktop-oomd
 - /usr/bin/desk-run
 - /usr/share/my-niri-desk/skel
 
 Apply the desktop preset for the current user with:
   my-niri-desk-apply
+
+Apply the desktop oomd policy with:
+  sudo configure-desktop-oomd --apply
 
 Default wallpapers are shipped in:
   ~/.config/wallpaper

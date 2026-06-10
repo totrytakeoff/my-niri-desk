@@ -142,6 +142,7 @@ my-niri-desk-apply
 - 替换 `@HOME@` 之类的用户路径占位符
 - 创建运行需要的目录
 - 补齐默认壁纸目录 `~/.config/wallpaper`
+- 载入用户态 systemd 配置，并启用 `quickshell.service`
 
 默认壁纸会被放到：
 
@@ -172,12 +173,51 @@ fuzzel --check-config
 quickshell -p ~/.config/quickshell list --all
 ```
 
+## 桌面 OOM 防护
+
+这套配置会把 QuickShell 纳入独立的 `quickshell.service`，并通过 `desk-app-run` 把部分高风险启动入口拆进独立的 systemd user 单元。这样可以避免大量应用继续堆在同一个 `app-niri-*` transient scope 里，降低 oomd 一次处理时连带杀掉整桶进程的概率。
+
+当前使用 `desk-app-run` 的入口包括：
+
+- niri 快捷键，例如终端和文件管理器
+- niri 会话恢复脚本
+- QuickShell 里的工具按钮，例如音频、网络、蓝牙、系统监视器、电源菜单
+
+QuickShell launcher 的应用主列表保留原生 `appObj.execute()` 启动方式。Zed、VSCode 这类应用的 `.desktop` 入口经常是 CLI / 单实例转发器，强行包进 transient systemd service 可能导致启动变慢、窗口转发失败或进程崩溃。
+
+这套配置同时为 `app.slice` / `background.slice` 提供 oomd 策略模板。要让系统级 `systemd-oomd` 提前介入 swap 压力，需要额外执行一次 root 配置：
+
+```bash
+sudo configure-desktop-oomd --apply
+```
+
+确认项：
+
+```bash
+oomctl
+```
+
+期望看到：
+
+- `Swap Used Limit: 75.00%`
+- `Swap Monitored CGroups` 包含 `app.slice` 和 `background.slice`
+- `Memory Pressure Monitored CGroups` 包含 `app.slice` 和 `background.slice`
+
+如果 `oomctl` 仍显示 `Swap Used Limit: 90.00%`，说明 root 级配置还没有应用，当前只有用户态 slice 设置生效。
+
+只查看将要写入的配置：
+
+```bash
+configure-desktop-oomd --dry-run
+```
+
 ## 包安装了什么
 
 这个包主要安装以下内容：
 
 - `/usr/bin/wayscrollshot`
 - `/usr/bin/my-niri-desk-apply`
+- `/usr/bin/configure-desktop-oomd`
 - `/usr/share/my-niri-desk/skel`
 
 其中 `/usr/share/my-niri-desk/skel` 是这套桌面配置模板的系统载荷。
@@ -224,6 +264,7 @@ my-niri-desk-apply
 - `push`：把本机配置同步回仓库 `payload/skel`。
 - `pull/push` 都会对受管目录使用 `rsync --delete`，并按内容 checksum 判断是否需要同步。
 - 默认不包含 `~/.config/wallpaper`，避免把个人壁纸文件误同步到仓库。
+- 默认包含 `quickshell.service` 和桌面 oomd user slice 模板；不会同步整个 `~/.config/systemd/user` 目录。
 
 ## 当前范围
 

@@ -481,7 +481,7 @@ WidgetPanel {
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                onClicked: Quickshell.execDetached(["gnome-control-center", "bluetooth"])
+                onClicked: Quickshell.execDetached(["desk-app-run", "--", "gnome-control-center", "bluetooth"])
             }
         }
     }

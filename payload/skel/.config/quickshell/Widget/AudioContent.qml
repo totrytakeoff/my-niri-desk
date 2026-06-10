@@ -28,7 +28,7 @@ WidgetPanel {
         text: "\uf013"
         font.family: "Font Awesome 7 Free Solid"; font.pixelSize: 20
         color: theme.subtext
-        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["pavucontrol"]) }
+        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["desk-app-run", "--", "pavucontrol"]) }
     }
 
     PwObjectTracker { objects: [ root.defaultSink, root.defaultSource ] }

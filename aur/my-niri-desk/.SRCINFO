@@ -60,6 +60,6 @@ pkgbase = my-niri-desk
 	source = my-niri-desk-0.2.0.tar.gz::https://github.com/totrytakeoff/my-niri-desk/archive/refs/tags/v0.2.0.tar.gz
 	source = my-niri-desk.install
 	sha256sums = e9f5a1f14ebbdb58665159d698cd27f8e6ceb4582f4561d1e407ddd68adb2d61
-	sha256sums = 1635fc07adbccdf91c2243ea9fbb74612844ca0c288d09d796eb21d1cf0b7676
+	sha256sums = 291f37bad7315bdb3820abd0e603e92044410b9d58106a083d034a7a3164aeb4
 
 pkgname = my-niri-desk

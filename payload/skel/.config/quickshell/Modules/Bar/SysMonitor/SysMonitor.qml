@@ -222,7 +222,7 @@ Item {
         // QML 隐式自带 mouse 变量，直接使用即可
         onPressed: {
             if (mouse.button === Qt.RightButton) {
-                Quickshell.execDetached(["gnome-system-monitor"]);
+                Quickshell.execDetached(["desk-app-run", "--", "gnome-system-monitor"]);
             }
         }
     }

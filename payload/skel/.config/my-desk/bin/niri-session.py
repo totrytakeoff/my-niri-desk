@@ -383,9 +383,21 @@ def wait_for_windows(
     return latest
 
 
+def desk_app_run_command(command: list[str]) -> list[str]:
+    local_runner = Path(__file__).with_name("desk-app-run")
+    if local_runner.exists():
+        return [str(local_runner), "--", *command]
+
+    path_runner = shutil.which("desk-app-run")
+    if path_runner:
+        return [path_runner, "--", *command]
+
+    return command
+
+
 def launch_app(command: list[str]) -> None:
     subprocess.Popen(
-        command,
+        desk_app_run_command(command),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         start_new_session=True,
