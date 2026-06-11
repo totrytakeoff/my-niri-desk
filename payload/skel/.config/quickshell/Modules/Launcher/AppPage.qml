@@ -12,7 +12,6 @@ Item {
     signal requestCloseLauncher()
 
     property var filteredAppsModel: []
-    
 
     function decrementCurrentIndex() { appsList.decrementCurrentIndex() }
     function incrementCurrentIndex() { appsList.incrementCurrentIndex() }
@@ -55,6 +54,15 @@ Item {
         let escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         let regex = new RegExp("(" + escapedQuery + ")", "gi")
         return safeText.replace(regex, "<u><b>$1</b></u>")
+    }
+
+    function launchApp(appData) {
+        let appId = appData.id || appData.name
+        if (appId) {
+            Quickshell.execDetached(["desk-app-run", "--desktop", appId])
+        } else if (appData.appObj) {
+            appData.appObj.execute()
+        }
     }
 
     TextInput {
@@ -168,7 +176,7 @@ Item {
         if (filteredAppsModel.length > 0 && appsList.currentIndex >= 0) {
             let appData = filteredAppsModel[appsList.currentIndex]
             if (appData && appData.appObj) {
-                appData.appObj.execute()
+                root.launchApp(appData)
             }
             root.requestCloseLauncher() 
         }

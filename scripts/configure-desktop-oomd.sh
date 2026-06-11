@@ -6,12 +6,12 @@ APP_SLICE_DROPIN="/etc/systemd/user/app.slice.d/60-desktop-oomd.conf"
 BACKGROUND_SLICE_DROPIN="/etc/systemd/user/background.slice.d/60-desktop-oomd.conf"
 
 SWAP_USED_LIMIT="${SWAP_USED_LIMIT:-75%}"
-APP_MEMORY_HIGH="${APP_MEMORY_HIGH:-22G}"
-APP_MEMORY_MAX="${APP_MEMORY_MAX:-26G}"
+APP_MEMORY_HIGH="${APP_MEMORY_HIGH:-20G}"
+APP_MEMORY_MAX="${APP_MEMORY_MAX:-24G}"
 APP_PRESSURE_LIMIT="${APP_PRESSURE_LIMIT:-40%}"
 APP_PRESSURE_DURATION="${APP_PRESSURE_DURATION:-10s}"
-BACKGROUND_MEMORY_HIGH="${BACKGROUND_MEMORY_HIGH:-8G}"
-BACKGROUND_MEMORY_MAX="${BACKGROUND_MEMORY_MAX:-12G}"
+BACKGROUND_MEMORY_HIGH="${BACKGROUND_MEMORY_HIGH:-4G}"
+BACKGROUND_MEMORY_MAX="${BACKGROUND_MEMORY_MAX:-6G}"
 BACKGROUND_PRESSURE_LIMIT="${BACKGROUND_PRESSURE_LIMIT:-30%}"
 BACKGROUND_PRESSURE_DURATION="${BACKGROUND_PRESSURE_DURATION:-10s}"
 DEFAULT_PRESSURE_LIMIT="${DEFAULT_PRESSURE_LIMIT:-60%}"
@@ -35,12 +35,12 @@ Purpose:
 
 Tunables via environment variables:
   SWAP_USED_LIMIT=75%
-  APP_MEMORY_HIGH=22G
-  APP_MEMORY_MAX=26G
+  APP_MEMORY_HIGH=20G
+  APP_MEMORY_MAX=24G
   APP_PRESSURE_LIMIT=40%
   APP_PRESSURE_DURATION=10s
-  BACKGROUND_MEMORY_HIGH=8G
-  BACKGROUND_MEMORY_MAX=12G
+  BACKGROUND_MEMORY_HIGH=4G
+  BACKGROUND_MEMORY_MAX=6G
   BACKGROUND_PRESSURE_LIMIT=30%
   BACKGROUND_PRESSURE_DURATION=10s
   DEFAULT_PRESSURE_LIMIT=60%
@@ -146,7 +146,11 @@ apply_config() {
     systemctl enable --now systemd-oomd.service
     systemctl restart systemd-oomd.service
 
-    local target_user="${SUDO_USER:-${USER:-}}"
+    local target_user="${SUDO_USER:-}"
+    if [[ -z "$target_user" && -n "${PKEXEC_UID:-}" ]]; then
+        target_user="$(id -nu "$PKEXEC_UID" 2>/dev/null || true)"
+    fi
+    target_user="${target_user:-${USER:-}}"
     if [[ -n "$target_user" && "$target_user" != "root" ]]; then
         local uid
         uid="$(id -u "$target_user")"
@@ -196,7 +200,11 @@ revert_config() {
     systemctl daemon-reload
     systemctl restart systemd-oomd.service 2>/dev/null || true
 
-    local target_user="${SUDO_USER:-${USER:-}}"
+    local target_user="${SUDO_USER:-}"
+    if [[ -z "$target_user" && -n "${PKEXEC_UID:-}" ]]; then
+        target_user="$(id -nu "$PKEXEC_UID" 2>/dev/null || true)"
+    fi
+    target_user="${target_user:-${USER:-}}"
     if [[ -n "$target_user" && "$target_user" != "root" ]]; then
         local uid
         uid="$(id -u "$target_user")"

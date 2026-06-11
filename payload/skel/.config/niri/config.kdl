@@ -306,8 +306,8 @@ binds {
 
     // 应用启动
     // -----------------------------------------------------------------------
-    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" --desktop kitty.desktop"; }
-    Ctrl+Alt+T { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" --desktop kitty.desktop"; }
+    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" -- kitty"; }
+    Ctrl+Alt+T { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" -- kitty"; }
     // 同时保留 Super+T 和你原来 GNOME 习惯里的 Ctrl+Alt+T。
 
     Mod+D hotkey-overlay-title="Toggle Launcher: quickshell" { spawn "quickshell" "ipc" "call" "launcher" "toggle"; }
@@ -329,7 +329,7 @@ binds {
     Mod+F2 hotkey-overlay-title="Restart QuickShell" { spawn "systemctl" "--user" "restart" "quickshell.service"; }
     // QuickShell 调样式时很常用的重启键，照着参考仓库保留。
 
-    Mod+N { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" --desktop org.gnome.Nautilus.desktop"; }
+    Mod+N { spawn-sh "\"$HOME/.config/my-desk/bin/desk-app-run\" -- nautilus --new-window"; }
     // 文件管理器。
 
     // 音量与媒体键

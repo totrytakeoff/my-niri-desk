@@ -194,6 +194,8 @@ def run_scoped(command: list[str], name: str | None, desktop: str | None) -> int
         "OOMPolicy=kill",
         "-p",
         "Type=exec",
+        "-p",
+        "ExitType=cgroup",
         "--",
         *command,
     ]

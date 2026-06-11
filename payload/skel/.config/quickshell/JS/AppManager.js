@@ -52,6 +52,7 @@ function updateFilter(inputText, DesktopEntries) {
         }
 
         result.push({
+            id: app.id,
             name: app.name,
             icon: finalPath,         // 传给 QML 的主要路径（Tela 的绝对路径）
             fallbackIcon: rawIcon,   // 【重点】把原始图标名也传过去，留作兜底备用！
