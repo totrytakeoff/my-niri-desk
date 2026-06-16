@@ -40,7 +40,7 @@ DEFAULTS = {
     "launch_timeout_seconds": 25.0,
     "post_launch_settle_seconds": 1.0,
     "include_floating_windows": True,
-    "launch_once_app_ids": ["code", "zen"],
+    "launch_once_app_ids": ["code", "zen", "dev.zed.Zed", "dev.zed.Zed-Dev"],
     "exclude_app_ids": [],
 }
 FIELD_CODE_RE = re.compile(r"%[fFuUdDnNickvm]")
@@ -132,47 +132,51 @@ def build_desktop_index() -> list[DesktopEntry]:
 DESKTOP_INDEX = build_desktop_index()
 
 
+def app_id_match_keys(app_id: str) -> list[str]:
+    keys: list[str] = []
+    for value in (app_id, app_id.split(".")[-1]):
+        key = value.casefold()
+        if key and key not in keys:
+            keys.append(key)
+        if key.endswith("-dev"):
+            stable_key = key.removesuffix("-dev")
+            if stable_key and stable_key not in keys:
+                keys.append(stable_key)
+    return keys
+
+
 def resolve_launch_info(app_id: str) -> dict | None:
-    app_id_cf = app_id.casefold()
-    app_leaf_cf = app_id.split(".")[-1].casefold()
+    app_keys = app_id_match_keys(app_id)
 
     for entry in DESKTOP_INDEX:
-        if entry.path.stem.casefold() == app_id_cf:
+        if entry.path.stem.casefold() in app_keys:
             return {"desktop_file": entry.path.name, "command": entry.command}
 
     for entry in DESKTOP_INDEX:
-        if entry.path.stem.casefold() == app_leaf_cf:
+        if entry.path.stem.casefold().split(".")[-1] in app_keys:
             return {"desktop_file": entry.path.name, "command": entry.command}
 
     for entry in DESKTOP_INDEX:
-        if entry.startup_wm_class and entry.startup_wm_class.casefold() == app_id_cf:
+        if entry.startup_wm_class and entry.startup_wm_class.casefold() in app_keys:
             return {"desktop_file": entry.path.name, "command": entry.command}
 
     for entry in DESKTOP_INDEX:
-        if entry.startup_wm_class and entry.startup_wm_class.casefold() == app_leaf_cf:
+        if entry.startup_wm_class and entry.startup_wm_class.casefold().split(".")[-1] in app_keys:
             return {"desktop_file": entry.path.name, "command": entry.command}
 
     for entry in DESKTOP_INDEX:
-        if entry.name and entry.name.casefold() == app_leaf_cf:
-            return {"desktop_file": entry.path.name, "command": entry.command}
-
-    for entry in DESKTOP_INDEX:
-        exe = Path(entry.command[-1 if entry.command[0] == "env" else 0]).name.casefold()
-        if exe == app_id_cf:
+        if entry.name and entry.name.casefold() in app_keys:
             return {"desktop_file": entry.path.name, "command": entry.command}
 
     for entry in DESKTOP_INDEX:
         exe = Path(entry.command[-1 if entry.command[0] == "env" else 0]).name.casefold()
-        if exe == app_leaf_cf:
+        if exe in app_keys:
             return {"desktop_file": entry.path.name, "command": entry.command}
 
-    fallback = shutil.which(app_id)
-    if fallback:
-        return {"desktop_file": None, "command": [fallback]}
-
-    fallback_leaf = shutil.which(app_id.split(".")[-1])
-    if fallback_leaf:
-        return {"desktop_file": None, "command": [fallback_leaf]}
+    for key in app_keys:
+        fallback = shutil.which(key)
+        if fallback:
+            return {"desktop_file": None, "command": [fallback]}
 
     return None
 
