@@ -42,6 +42,9 @@ QtObject {
     // 关闭后则回退为普通边界行为：到顶/到底停止，Tab 只做正向切换。
     property bool launcherCyclicNavigation: true
 
+    // Launcher 应用排序模式: "alphabetical" | "frequent"
+    property string launcherSortMode: "alphabetical"
+
     // 通知中心窗口是否打开。
     property bool notifOpen: false
     property bool notifIsHovered: false 
