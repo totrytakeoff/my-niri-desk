@@ -106,6 +106,20 @@ Item {
         itemsList.positionViewAtIndex(root.selectedIndex, ListView.Contain)
     }
 
+    function jumpToFirst() {
+        if (root.filteredItems.length === 0) return
+        root.selectedIndex = 0
+        itemsList.currentIndex = 0
+        itemsList.positionViewAtIndex(0, ListView.Beginning)
+    }
+
+    function jumpToLast() {
+        if (root.filteredItems.length === 0) return
+        root.selectedIndex = root.filteredItems.length - 1
+        itemsList.currentIndex = root.selectedIndex
+        itemsList.positionViewAtIndex(root.selectedIndex, ListView.End)
+    }
+
     function selectedItem() {
         if (root.filteredItems.length === 0) return null
         return root.filteredItems[root.selectedIndex]
@@ -250,6 +264,15 @@ Item {
                         Keys.onDownPressed: (event) => { root.moveSelection(1); event.accepted = true }
                         Keys.onReturnPressed: (event) => { root.copySelected(); event.accepted = true }
                         Keys.onEnterPressed: (event) => { root.copySelected(); event.accepted = true }
+                        Keys.onPressed: (event) => {
+                            if (event.key === Qt.Key_PageUp) {
+                                root.jumpToFirst()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_PageDown) {
+                                root.jumpToLast()
+                                event.accepted = true
+                            }
+                        }
                     }
                 }
             }
@@ -306,7 +329,13 @@ Item {
                     }
 
                     Text {
-                        text: root.errorText !== "" ? root.errorText : "Enter copies"
+                        text: {
+                            if (root.errorText !== "") return root.errorText
+                            if (root.filteredItems.length === 0) return "Enter copies"
+                            const pos = root.selectedIndex + 1
+                            const total = root.filteredItems.length
+                            return pos + " / " + total + "  ·  Enter copies"
+                        }
                         color: root.errorText !== "" ? Colorscheme.error : Colorscheme.on_surface_variant
                         font.pixelSize: 12
                         Layout.fillWidth: true
@@ -381,6 +410,22 @@ Item {
                 keyNavigationWraps: WidgetState.launcherCyclicNavigation
                 highlightMoveDuration: 0
                 spacing: 8
+
+                ScrollBar.vertical: ScrollBar {
+                    width: 6
+                    policy: ScrollBar.AsNeeded
+                    interactive: true
+
+                    contentItem: Rectangle {
+                        radius: 3
+                        color: Colorscheme.on_surface_variant
+                        opacity: 0.4
+                    }
+
+                    background: Rectangle {
+                        color: "transparent"
+                    }
+                }
 
                 highlight: Rectangle {
                     color: Colorscheme.primary
