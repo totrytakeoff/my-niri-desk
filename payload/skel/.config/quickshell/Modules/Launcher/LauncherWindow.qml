@@ -32,6 +32,9 @@ PanelWindow {
                                   ? wallpaperPage.currentSelectedPreview 
                                   : (Colorscheme.currentWallpaperPreview !== "" ? Colorscheme.currentWallpaperPreview : "file://" + Quickshell.env("HOME") + "/.cache/wallpaper_rofi/current")
 
+    property bool toolsExpanded: currentMode === 4 && toolsPage.expanded
+    property bool appGridExpanded: currentMode === 0 && appPage.gridMode
+
     // ==========================================
     // 【全局壁纸强制同步引擎】
     // ==========================================
@@ -58,9 +61,11 @@ PanelWindow {
             syncGlobalWallpaper.running = false;
             syncGlobalWallpaper.running = true;
 
-            // 智能焦点路由
             if (currentMode === 0) appPage.forceSearchFocus()
             else if (currentMode === 1) windowPage.forceSearchFocus()
+            else if (currentMode === 2) wallpaperPage.forceSearchFocus()
+            else if (currentMode === 3) filePage.forceSearchFocus()
+            else if (currentMode === 4) toolsPage.forceSearchFocus()
             else mainUI.forceActiveFocus()
             
             // // 每次打开都正常播放入场动画
@@ -76,6 +81,9 @@ PanelWindow {
         if (visible) {
             if (currentMode === 0) appPage.forceSearchFocus()
             else if (currentMode === 1) windowPage.forceSearchFocus()
+            else if (currentMode === 2) wallpaperPage.forceSearchFocus()
+            else if (currentMode === 3) filePage.forceSearchFocus()
+            else if (currentMode === 4) toolsPage.forceSearchFocus()
             else mainUI.forceActiveFocus()
         }
     }
@@ -93,7 +101,7 @@ PanelWindow {
     }
 
     function cycleMode(step) {
-        const modeCount = 3
+        const modeCount = 5
 
         if (!WidgetState.launcherCyclicNavigation) {
             root.currentMode = Math.max(0, Math.min(modeCount - 1, root.currentMode + step))
@@ -173,6 +181,8 @@ PanelWindow {
             if (root.currentMode === 0) appPage.decrementCurrentIndex()
             else if (root.currentMode === 1) windowPage.decrementCurrentIndex()
             else if (root.currentMode === 2) wallpaperPage.decrementCurrentIndex()
+            else if (root.currentMode === 3) filePage.decrementCurrentIndex()
+            else if (root.currentMode === 4) toolsPage.decrementCurrentIndex()
             event.accepted = true
         }
         
@@ -180,6 +190,8 @@ PanelWindow {
             if (root.currentMode === 0) appPage.incrementCurrentIndex()
             else if (root.currentMode === 1) windowPage.incrementCurrentIndex()
             else if (root.currentMode === 2) wallpaperPage.incrementCurrentIndex()
+            else if (root.currentMode === 3) filePage.incrementCurrentIndex()
+            else if (root.currentMode === 4) toolsPage.incrementCurrentIndex()
             event.accepted = true
         }
 
@@ -187,6 +199,8 @@ PanelWindow {
             if (root.currentMode === 0) appPage.runSelectedApp()
             else if (root.currentMode === 1) windowPage.focusSelectedWindow()
             else if (root.currentMode === 2) wallpaperPage.applyWallpaper()
+            else if (root.currentMode === 3) filePage.openSelected()
+            else if (root.currentMode === 4) toolsPage.activateCurrentTool()
             event.accepted = true
         }
         
@@ -194,11 +208,19 @@ PanelWindow {
             if (root.currentMode === 0) appPage.runSelectedApp()
             else if (root.currentMode === 1) windowPage.focusSelectedWindow()
             else if (root.currentMode === 2) wallpaperPage.applyWallpaper()
+            else if (root.currentMode === 3) filePage.openSelected()
+            else if (root.currentMode === 4) toolsPage.activateCurrentTool()
             event.accepted = true
         }
 
         Keys.onEscapePressed: (event) => {
-            root.requestClose()
+            if (root.appGridExpanded) {
+                appPage.gridMode = false
+            } else if (root.toolsExpanded) {
+                toolsPage.collapse()
+            } else {
+                root.requestClose()
+            }
             event.accepted = true
         }
 
@@ -216,6 +238,15 @@ PanelWindow {
                     root.cycleMode(1)
                 }
                 event.accepted = true
+                return
+            }
+
+            if (event.modifiers === Qt.ControlModifier && event.key === Qt.Key_G) {
+                if (root.currentMode === 0) {
+                    appPage.gridMode = !appPage.gridMode
+                    appPage.forceSearchFocus()
+                    event.accepted = true
+                }
             }
         }
         
@@ -239,58 +270,98 @@ PanelWindow {
                 anchors.fill: parent
                 spacing: 0
                 
-                // --- 左侧：海报区 ---
+                // --- 左侧：海报区 / 翻译展开区 / 应用网格展开 ---
                 Item {
-                    Layout.preferredWidth: 640 
+                    Layout.preferredWidth: root.appGridExpanded ? 80 : (root.toolsExpanded ? 640 : 640)
                     Layout.fillHeight: true
-                    clip: true 
-                    
-                    Rectangle {
-                        anchors.fill: parent
-                        color: "black"
-                    }
+                    clip: true
 
-                    Image {
-                        id: rawPreviewForBlur
-                        width: 1008
-                        height: 567
-                        x: 0 
-                        y: 0
-                        source: root.previewImage
-                        fillMode: Image.PreserveAspectCrop 
-                        asynchronous: true
-                        visible: false 
-                        sourceSize.width: 1008
-                        sourceSize.height: 567
-                    }
-
-                    FastBlur {
-                        anchors.fill: rawPreviewForBlur
-                        source: rawPreviewForBlur
-                        radius: 64 
-                        transparentBorder: false
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: Qt.rgba(0, 0, 0, 0.2)
-                    }
-
+                    // 壁纸背景（非翻译/非网格展开时显示）
                     Item {
                         anchors.fill: parent
-                        anchors.leftMargin: 80 
-                        clip: true 
-                        
+                        visible: !root.toolsExpanded && !root.appGridExpanded
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "black"
+                        }
+
                         Image {
+                            id: rawPreviewForBlur
                             width: 1008
                             height: 567
-                            x: -80  
-                            y: 0
-                            fillMode: Image.PreserveAspectCrop
+                            x: 0; y: 0
                             source: root.previewImage
-                            asynchronous: true  
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            visible: false
                             sourceSize.width: 1008
                             sourceSize.height: 567
+                        }
+
+                        FastBlur {
+                            anchors.fill: rawPreviewForBlur
+                            source: rawPreviewForBlur
+                            radius: 64
+                            transparentBorder: false
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Qt.rgba(0, 0, 0, 0.2)
+                        }
+
+                        Item {
+                            anchors.fill: parent
+                            anchors.leftMargin: 80
+                            clip: true
+
+                            Image {
+                                width: 1008
+                                height: 567
+                                x: -80; y: 0
+                                fillMode: Image.PreserveAspectCrop
+                                source: root.previewImage
+                                asynchronous: true
+                                sourceSize.width: 1008
+                                sourceSize.height: 567
+                            }
+                        }
+                    }
+
+                    // 翻译展开内容（翻译展开时显示）
+                    Item {
+                        anchors.fill: parent
+                        visible: root.toolsExpanded
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Qt.rgba(0.04, 0.04, 0.08, 0.95)
+                        }
+
+                        Flickable {
+                            anchors.fill: parent
+                            anchors.leftMargin: 96
+                            anchors.rightMargin: 24
+                            anchors.topMargin: 24
+                            anchors.bottomMargin: 24
+                            clip: true
+                            contentHeight: transOutput.implicitHeight
+
+                            TextEdit {
+                                id: transOutput
+                                width: parent.width
+                                text: toolsPage.translating ? "Translating..." : toolsPage.resultText
+                                color: Colorscheme.on_surface
+                                font.pixelSize: 14
+                                font.family: "JetBrains Mono Nerd Font"
+                                textFormat: Text.PlainText
+                                wrapMode: Text.WordWrap
+                                selectByMouse: true
+                                readOnly: true
+                                cursorVisible: false
+                                activeFocusOnTab: false
+                            }
                         }
                     }
 
@@ -350,6 +421,61 @@ PanelWindow {
                                 color: root.currentMode === 2 ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
                             }
                         }
+                        
+                        // 标签页 4：文件检索
+                        Rectangle {
+                            width: 48
+                            height: 48
+                            radius: 24
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: root.currentMode === 3 ? Colorscheme.secondary : Qt.rgba(0.06, 0.06, 0.1, 0.8)
+                            
+                            Text {
+                                anchors.centerIn: parent
+                                text: ""
+                                font.family: "JetBrains Mono Nerd Font"
+                                font.pixelSize: 20
+                                color: root.currentMode === 3 ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
+                            }
+                        }
+                        
+                        // 标签页 5：常用工具
+                        Rectangle {
+                            width: 48
+                            height: 48
+                            radius: 24
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: root.currentMode === 4 ? Colorscheme.secondary : Qt.rgba(0.06, 0.06, 0.1, 0.8)
+                            
+                            Text {
+                                anchors.centerIn: parent
+                                text: ""
+                                font.family: "JetBrains Mono Nerd Font"
+                                font.pixelSize: 20
+                                color: root.currentMode === 4 ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
+                            }
+                        }
+
+                        // 网格/列表切换（仅应用页显示）
+                        Rectangle {
+                            width: 36; height: 36; radius: 18
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: appPage.gridMode ? Colorscheme.secondary : Qt.rgba(0.06, 0.06, 0.1, 0.8)
+                            visible: root.currentMode === 0
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: appPage.gridMode ? "▦" : "☰"
+                                font.family: "JetBrains Mono Nerd Font"
+                                font.pixelSize: 16
+                                color: appPage.gridMode ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: appPage.toggleGrid()
+                            }
+                        }
                     }
                 }
                 
@@ -378,6 +504,14 @@ PanelWindow {
                         }
                         WallpaperPage { 
                             id: wallpaperPage  
+                            onRequestCloseLauncher: root.requestClose()
+                        }
+                        FilePage {
+                            id: filePage
+                            onRequestCloseLauncher: root.requestClose()
+                        }
+                        ToolsPage {
+                            id: toolsPage
                             onRequestCloseLauncher: root.requestClose()
                         }
                     }
