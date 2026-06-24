@@ -7,6 +7,13 @@ on:
       - master
     tags:
       - 'v*'
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'lists.md'
+      - 'aur/**'
+      - '.SRCINFO'
+      - '.gitignore'
   workflow_dispatch:
 
 permissions:

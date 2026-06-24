@@ -62,7 +62,7 @@ optdepends=(
 )
 install="${pkgname}.install"
 source=()
-sha256sums=('SKIP')
+sha256sums=()
 
 package() {
   install -dm755 "${pkgdir}/usr/bin"
