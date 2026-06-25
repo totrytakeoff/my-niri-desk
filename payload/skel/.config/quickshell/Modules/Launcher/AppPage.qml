@@ -13,33 +13,82 @@ Item {
     signal requestCloseLauncher()
 
     property var filteredAppsModel: []
-    property bool gridMode: false
+    readonly property bool gridMode: WidgetState.launcherLayoutMode === "grid"
+
+    function normalizedIndex(index, count) {
+        if (count <= 0) return -1
+        if (WidgetState.launcherCyclicNavigation) return (index % count + count) % count
+        return Math.max(0, Math.min(index, count - 1))
+    }
+
+    function selectIndex(index) {
+        if (!filteredAppsModel || filteredAppsModel.length === 0) return
+        var idx = normalizedIndex(index, filteredAppsModel.length)
+        appsList.currentIndex = idx
+        grid.currentIndex = idx
+        if (gridMode) grid.positionViewAtIndex(idx, GridView.Contain)
+        else appsList.positionViewAtIndex(idx, ListView.Contain)
+    }
+
+    function gridColumns() {
+        return Math.max(1, Math.floor(grid.width / grid.cellWidth))
+    }
+
+    function moveGrid(delta) {
+        selectIndex(grid.currentIndex + delta)
+    }
 
     function decrementCurrentIndex() {
-        if (gridMode) grid.decrementCurrentIndex()
-        else appsList.decrementCurrentIndex()
+        if (gridMode) moveGrid(-gridColumns())
+        else selectIndex(appsList.currentIndex - 1)
     }
     function incrementCurrentIndex() {
-        if (gridMode) grid.incrementCurrentIndex()
-        else appsList.incrementCurrentIndex()
+        if (gridMode) moveGrid(gridColumns())
+        else selectIndex(appsList.currentIndex + 1)
     }
     function forceSearchFocus() { searchBox.forceActiveFocus() }
 
+    Text {
+        anchors.top: parent.top
+        anchors.left: parent.left
+        text: "Applications"
+        color: Colorscheme.on_surface
+        font.pixelSize: 18
+        font.bold: true
+    }
+
     function search(text) {
         filteredAppsModel = AppManager.updateFilter(text, DesktopEntries, WidgetState.launcherSortMode)
-        if (gridMode) grid.currentIndex = 0
-        else appsList.currentIndex = 0
+        selectIndex(0)
+    }
+
+    function setGridMode(enabled, focusAppPage) {
+        var nextMode = enabled ? "grid" : "list"
+        if (WidgetState.launcherLayoutMode === nextMode) {
+            if (focusAppPage !== false) forceSearchFocus()
+            return
+        }
+
+        WidgetState.launcherLayoutMode = nextMode
+        search(searchBox.text)
+        if (focusAppPage !== false) forceSearchFocus()
+        persistState()
     }
 
     function toggleGrid() {
-        gridMode = !gridMode
-        search(searchBox.text)
-        forceSearchFocus()
+        setGridMode(!gridMode)
     }
 
     function refreshSearch() {
         search(searchBox.text)
         persistState()
+    }
+
+    function toggleSortMode() {
+        WidgetState.launcherSortMode = WidgetState.launcherSortMode === "frequent" ? "alphabetical" : "frequent"
+        search(searchBox.text)
+        persistState()
+        forceSearchFocus()
     }
 
     Keys.onPressed: (event) => {
@@ -95,6 +144,7 @@ Item {
     function persistState() {
         var state = JSON.stringify({
             sortMode: WidgetState.launcherSortMode,
+            layoutMode: WidgetState.launcherLayoutMode,
             freq: AppManager._freqData
         })
         saveFreqProcess.running = false
@@ -115,6 +165,10 @@ Item {
                     if (parsed.sortMode === "alphabetical" || parsed.sortMode === "frequent") {
                         WidgetState.launcherSortMode = parsed.sortMode
                     }
+                    if (parsed.layoutMode === "list" || parsed.layoutMode === "grid") {
+                        WidgetState.launcherLayoutMode = parsed.layoutMode
+                    }
+                    root.search(searchBox.text)
                 } catch (e) {
                     AppManager.setFreqData({})
                 }
@@ -135,15 +189,50 @@ Item {
         Keys.onEnterPressed: (event) => { runSelectedApp(); event.accepted = true }
         Keys.onUpPressed: (event) => { root.decrementCurrentIndex(); event.accepted = true }
         Keys.onDownPressed: (event) => { root.incrementCurrentIndex(); event.accepted = true }
-        Keys.onLeftPressed: (event) => { if (root.gridMode) { grid.decrementCurrentIndex(); event.accepted = true } }
-        Keys.onRightPressed: (event) => { if (root.gridMode) { grid.incrementCurrentIndex(); event.accepted = true } }
+        Keys.onLeftPressed: (event) => { if (root.gridMode) { root.moveGrid(-1); event.accepted = true } }
+        Keys.onRightPressed: (event) => { if (root.gridMode) { root.moveGrid(1); event.accepted = true } }
+        Keys.onPressed: (event) => {
+            if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_G) {
+                root.toggleGrid()
+                event.accepted = true
+            }
+        }
+    }
+
+    Rectangle {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        width: 32
+        height: 32
+        radius: 8
+        color: sortMouse.containsMouse ? Colorscheme.surface_variant : "transparent"
+        border.width: 1
+        border.color: Colorscheme.glass_outline
+        z: 2
+
+        Text {
+            anchors.centerIn: parent
+            text: WidgetState.launcherSortMode === "frequent" ? "sort" : "A-Z"
+            font.family: WidgetState.launcherSortMode === "frequent" ? "Material Symbols Rounded" : "JetBrains Mono Nerd Font"
+            font.pixelSize: WidgetState.launcherSortMode === "frequent" ? 18 : 14
+            font.bold: WidgetState.launcherSortMode !== "frequent"
+            color: WidgetState.launcherSortMode === "frequent" ? Colorscheme.primary : Colorscheme.on_surface_variant
+        }
+
+        MouseArea {
+            id: sortMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleSortMode()
+        }
     }
 
     // 列表视图
     ListView {
         id: appsList
         anchors.fill: parent
-        anchors.topMargin: 4
+        anchors.topMargin: 42
         clip: true
         visible: !gridMode
 
@@ -165,7 +254,7 @@ Item {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: { appsList.currentIndex = index; runSelectedApp() }
+                onClicked: { root.selectIndex(index); runSelectedApp() }
             }
 
             RowLayout {
@@ -205,7 +294,7 @@ Item {
     GridView {
         id: grid
         anchors.fill: parent
-        anchors.topMargin: 4
+        anchors.topMargin: 42
         clip: true
         visible: gridMode
 
@@ -230,7 +319,7 @@ Item {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: { grid.currentIndex = index; runSelectedApp() }
+                onClicked: { root.selectIndex(index); runSelectedApp() }
             }
 
             ColumnLayout {

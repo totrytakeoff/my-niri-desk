@@ -12,19 +12,45 @@ Item {
 
     property int activeTool: -1
     property bool expanded: activeTool >= 0
+    readonly property bool gridMode: WidgetState.launcherLayoutMode === "grid"
     property string sourceText: ""
     property string resultText: ""
     property bool translating: false
     property bool dirEnToZh: true
     property var history: []
 
+    function normalizedIndex(index, count) {
+        if (count <= 0) return -1
+        if (WidgetState.launcherCyclicNavigation) return (index % count + count) % count
+        return Math.max(0, Math.min(index, count - 1))
+    }
+
+    function selectIndex(index) {
+        if (toolModel.count === 0) return
+        var idx = normalizedIndex(index, toolModel.count)
+        toolList.currentIndex = idx
+        toolGrid.currentIndex = idx
+        if (gridMode) toolGrid.positionViewAtIndex(idx, GridView.Contain)
+        else toolList.positionViewAtIndex(idx, ListView.Contain)
+    }
+
+    function gridColumns() {
+        return Math.max(1, Math.floor(toolGrid.width / toolGrid.cellWidth))
+    }
+
+    function moveGrid(delta) {
+        selectIndex(toolGrid.currentIndex + delta)
+    }
+
     function decrementCurrentIndex() {
         if (activeTool >= 0) return
-        toolList.decrementCurrentIndex()
+        if (gridMode) moveGrid(-gridColumns())
+        else selectIndex(toolList.currentIndex - 1)
     }
     function incrementCurrentIndex() {
         if (activeTool >= 0) return
-        toolList.incrementCurrentIndex()
+        if (gridMode) moveGrid(gridColumns())
+        else selectIndex(toolList.currentIndex + 1)
     }
     function forceSearchFocus() {
         if (activeTool >= 0) {
@@ -44,7 +70,7 @@ Item {
             doTranslate(translateInput.text)
             return
         }
-        var idx = toolList.currentIndex
+        var idx = gridMode ? toolGrid.currentIndex : toolList.currentIndex
         if (idx >= 0 && idx < toolModel.count && idx === 0) {
             selectTool(idx)
         }
@@ -112,6 +138,8 @@ Item {
 
         Keys.onUpPressed: (event) => { root.decrementCurrentIndex(); event.accepted = true }
         Keys.onDownPressed: (event) => { root.incrementCurrentIndex(); event.accepted = true }
+        Keys.onLeftPressed: (event) => { if (root.gridMode) { root.moveGrid(-1); event.accepted = true } }
+        Keys.onRightPressed: (event) => { if (root.gridMode) { root.moveGrid(1); event.accepted = true } }
         Keys.onReturnPressed: (event) => { root.activateCurrentTool(); event.accepted = true }
         Keys.onEnterPressed: (event) => { root.activateCurrentTool(); event.accepted = true }
         Keys.onEscapePressed: (event) => {
@@ -133,90 +161,177 @@ Item {
             font.bold: true
         }
 
-        ListView {
-            id: toolList
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
 
-            model: toolModel
-            boundsBehavior: Flickable.StopAtBounds
-            keyNavigationWraps: WidgetState.launcherCyclicNavigation
-            highlightMoveDuration: 0
-            spacing: 8
-            currentIndex: 0
+            ListView {
+                id: toolList
+                anchors.fill: parent
+                clip: true
+                visible: !root.gridMode
 
-            ScrollBar.vertical: ScrollBar {
-                width: 6; policy: ScrollBar.AsNeeded; interactive: true
-                contentItem: Rectangle { radius: 3; color: Colorscheme.on_surface_variant; opacity: 0.4 }
-                background: Rectangle { color: "transparent" }
-            }
+                model: toolModel
+                boundsBehavior: Flickable.StopAtBounds
+                keyNavigationWraps: WidgetState.launcherCyclicNavigation
+                highlightMoveDuration: 0
+                spacing: 8
+                currentIndex: 0
 
-            highlight: Rectangle {
-                color: Colorscheme.primary; radius: 12
-            }
-
-            delegate: Item {
-                width: ListView.view.width
-                height: 64
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        toolList.currentIndex = index
-                        root.selectTool(index)
-                    }
-                    onDoubleClicked: root.selectTool(index)
+                ScrollBar.vertical: ScrollBar {
+                    width: 6; policy: ScrollBar.AsNeeded; interactive: true
+                    contentItem: Rectangle { radius: 3; color: Colorscheme.on_surface_variant; opacity: 0.4 }
+                    background: Rectangle { color: "transparent" }
                 }
 
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 14
-                    color: ListView.isCurrentItem ? "transparent" : Qt.rgba(Colorscheme.inverse_surface.r, Colorscheme.inverse_surface.g, Colorscheme.inverse_surface.b, 0.06)
-                    border.width: ListView.isCurrentItem ? 0 : 1
-                    border.color: Colorscheme.glass_outline
+                highlight: Rectangle {
+                    color: Colorscheme.primary; radius: 12
+                }
 
-                    RowLayout {
+                delegate: Item {
+                    width: ListView.view.width
+                    height: 64
+
+                    MouseArea {
                         anchors.fill: parent
-                        anchors.leftMargin: 14; anchors.rightMargin: 14
-                        spacing: 14
+                        onClicked: {
+                            root.selectIndex(index)
+                            root.selectTool(index)
+                        }
+                        onDoubleClicked: root.selectTool(index)
+                    }
 
-                        Rectangle {
-                            Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 12
-                            color: ListView.isCurrentItem ? Qt.rgba(1,1,1,0.2) : Qt.alpha(Colorscheme.primary_container, 0.7)
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 14
+                        color: ListView.isCurrentItem ? "transparent" : Qt.rgba(Colorscheme.inverse_surface.r, Colorscheme.inverse_surface.g, Colorscheme.inverse_surface.b, 0.06)
+                        border.width: ListView.isCurrentItem ? 0 : 1
+                        border.color: Colorscheme.glass_outline
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 14; anchors.rightMargin: 14
+                            spacing: 14
+
+                            Rectangle {
+                                Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 12
+                                color: ListView.isCurrentItem ? Qt.rgba(1,1,1,0.2) : Qt.alpha(Colorscheme.primary_container, 0.7)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: model.icon
+                                    font.family: "Material Symbols Rounded"
+                                    font.pixelSize: 20
+                                    color: ListView.isCurrentItem ? Colorscheme.on_primary : Colorscheme.on_primary_container
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 3
+
+                                Text {
+                                    text: model.name
+                                    color: ListView.isCurrentItem ? Colorscheme.on_primary : Colorscheme.on_surface
+                                    font.pixelSize: 15; font.bold: true
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    text: model.desc
+                                    color: ListView.isCurrentItem ? Qt.rgba(0,0,0,0.6) : Colorscheme.on_surface_variant
+                                    font.pixelSize: 11; elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
 
                             Text {
-                                anchors.centerIn: parent
-                                text: model.icon
+                                text: "chevron_right"
                                 font.family: "Material Symbols Rounded"
                                 font.pixelSize: 20
-                                color: ListView.isCurrentItem ? Colorscheme.on_primary : Colorscheme.on_primary_container
+                                color: ListView.isCurrentItem ? Qt.rgba(0,0,0,0.5) : Colorscheme.on_surface_variant
                             }
                         }
+                    }
+                }
+            }
 
-                        ColumnLayout {
-                            Layout.fillWidth: true; spacing: 3
+            GridView {
+                id: toolGrid
+                anchors.fill: parent
+                clip: true
+                visible: root.gridMode && activeTool < 0
 
-                            Text {
-                                text: model.name
-                                color: ListView.isCurrentItem ? Colorscheme.on_primary : Colorscheme.on_surface
-                                font.pixelSize: 15; font.bold: true
-                                Layout.fillWidth: true
-                            }
+                model: toolModel
+                cellWidth: Math.max(180, Math.min(260, Math.floor((width - 16) / 2)))
+                cellHeight: 96
+                boundsBehavior: Flickable.StopAtBounds
+                keyNavigationWraps: WidgetState.launcherCyclicNavigation
+                highlightMoveDuration: 0
 
-                            Text {
-                                text: model.desc
-                                color: ListView.isCurrentItem ? Qt.rgba(0,0,0,0.6) : Colorscheme.on_surface_variant
-                                font.pixelSize: 11; elide: Text.ElideRight
-                                Layout.fillWidth: true
-                            }
+                ScrollBar.vertical: ScrollBar {
+                    width: 6; policy: ScrollBar.AsNeeded; interactive: true
+                    contentItem: Rectangle { radius: 3; color: Colorscheme.on_surface_variant; opacity: 0.4 }
+                    background: Rectangle { color: "transparent" }
+                }
+
+                highlight: Rectangle { color: Colorscheme.primary; radius: 12 }
+
+                delegate: Item {
+                    width: GridView.view.cellWidth
+                    height: GridView.view.cellHeight
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            root.selectIndex(index)
+                            root.selectTool(index)
                         }
+                        onDoubleClicked: root.selectTool(index)
+                    }
 
-                        Text {
-                            text: "chevron_right"
-                            font.family: "Material Symbols Rounded"
-                            font.pixelSize: 20
-                            color: ListView.isCurrentItem ? Qt.rgba(0,0,0,0.5) : Colorscheme.on_surface_variant
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        radius: 14
+                        color: GridView.isCurrentItem ? Colorscheme.primary : Qt.rgba(Colorscheme.inverse_surface.r, Colorscheme.inverse_surface.g, Colorscheme.inverse_surface.b, 0.06)
+                        border.width: GridView.isCurrentItem ? 0 : 1
+                        border.color: Colorscheme.glass_outline
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 12
+
+                            Rectangle {
+                                Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 12
+                                color: GridView.isCurrentItem ? Qt.rgba(1,1,1,0.2) : Qt.alpha(Colorscheme.primary_container, 0.7)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: model.icon
+                                    font.family: "Material Symbols Rounded"
+                                    font.pixelSize: 20
+                                    color: GridView.isCurrentItem ? Colorscheme.on_primary : Colorscheme.on_primary_container
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 3
+
+                                Text {
+                                    text: model.name
+                                    color: GridView.isCurrentItem ? Colorscheme.on_primary : Colorscheme.on_surface
+                                    font.pixelSize: 15; font.bold: true
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    text: model.desc
+                                    color: GridView.isCurrentItem ? Qt.rgba(0,0,0,0.6) : Colorscheme.on_surface_variant
+                                    font.pixelSize: 11; elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                            }
                         }
                     }
                 }

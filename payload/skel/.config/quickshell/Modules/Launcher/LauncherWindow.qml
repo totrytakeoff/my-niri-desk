@@ -33,7 +33,7 @@ PanelWindow {
                                   : (Colorscheme.currentWallpaperPreview !== "" ? Colorscheme.currentWallpaperPreview : "file://" + Quickshell.env("HOME") + "/.cache/wallpaper_rofi/current")
 
     property bool toolsExpanded: currentMode === 4 && toolsPage.expanded
-    property bool appGridExpanded: currentMode === 0 && appPage.gridMode
+    property bool launcherGridExpanded: WidgetState.launcherLayoutMode === "grid" && !toolsExpanded
 
     // ==========================================
     // 【全局壁纸强制同步引擎】
@@ -61,12 +61,7 @@ PanelWindow {
             syncGlobalWallpaper.running = false;
             syncGlobalWallpaper.running = true;
 
-            if (currentMode === 0) appPage.forceSearchFocus()
-            else if (currentMode === 1) windowPage.forceSearchFocus()
-            else if (currentMode === 2) wallpaperPage.forceSearchFocus()
-            else if (currentMode === 3) filePage.forceSearchFocus()
-            else if (currentMode === 4) toolsPage.forceSearchFocus()
-            else mainUI.forceActiveFocus()
+            focusCurrentPage()
             
             // // 每次打开都正常播放入场动画
             // mainUI.opacity = 0.0
@@ -79,12 +74,7 @@ PanelWindow {
 
     onCurrentModeChanged: {
         if (visible) {
-            if (currentMode === 0) appPage.forceSearchFocus()
-            else if (currentMode === 1) windowPage.forceSearchFocus()
-            else if (currentMode === 2) wallpaperPage.forceSearchFocus()
-            else if (currentMode === 3) filePage.forceSearchFocus()
-            else if (currentMode === 4) toolsPage.forceSearchFocus()
-            else mainUI.forceActiveFocus()
+            focusCurrentPage()
         }
     }
 
@@ -109,6 +99,21 @@ PanelWindow {
         }
 
         root.currentMode = (root.currentMode + step + modeCount) % modeCount
+    }
+
+    function focusCurrentPage() {
+        if (currentMode === 0) appPage.forceSearchFocus()
+        else if (currentMode === 1) windowPage.forceSearchFocus()
+        else if (currentMode === 2) wallpaperPage.forceSearchFocus()
+        else if (currentMode === 3) filePage.forceSearchFocus()
+        else if (currentMode === 4) toolsPage.forceSearchFocus()
+        else mainUI.forceActiveFocus()
+    }
+
+    function toggleLayoutMode() {
+        WidgetState.launcherLayoutMode = WidgetState.launcherLayoutMode === "grid" ? "list" : "grid"
+        appPage.refreshSearch()
+        focusCurrentPage()
     }
 
     MouseArea {
@@ -214,8 +219,10 @@ PanelWindow {
         }
 
         Keys.onEscapePressed: (event) => {
-            if (root.appGridExpanded) {
-                appPage.gridMode = false
+            if (root.launcherGridExpanded) {
+                WidgetState.launcherLayoutMode = "list"
+                appPage.refreshSearch()
+                root.focusCurrentPage()
             } else if (root.toolsExpanded) {
                 toolsPage.collapse()
             } else {
@@ -242,11 +249,8 @@ PanelWindow {
             }
 
             if (event.modifiers === Qt.ControlModifier && event.key === Qt.Key_G) {
-                if (root.currentMode === 0) {
-                    appPage.gridMode = !appPage.gridMode
-                    appPage.forceSearchFocus()
-                    event.accepted = true
-                }
+                root.toggleLayoutMode()
+                event.accepted = true
             }
         }
         
@@ -272,14 +276,14 @@ PanelWindow {
                 
                 // --- 左侧：海报区 / 翻译展开区 / 应用网格展开 ---
                 Item {
-                    Layout.preferredWidth: root.appGridExpanded ? 80 : (root.toolsExpanded ? 640 : 640)
+                    Layout.preferredWidth: root.launcherGridExpanded ? 80 : (root.toolsExpanded ? 640 : 640)
                     Layout.fillHeight: true
                     clip: true
 
                     // 壁纸背景（非翻译/非网格展开时显示）
                     Item {
                         anchors.fill: parent
-                        visible: !root.toolsExpanded && !root.appGridExpanded
+                        visible: !root.toolsExpanded && !root.launcherGridExpanded
 
                         Rectangle {
                             anchors.fill: parent
@@ -456,24 +460,23 @@ PanelWindow {
                             }
                         }
 
-                        // 网格/列表切换（仅应用页显示）
+                        // 网格/列表切换（全局 Launcher 布局）
                         Rectangle {
                             width: 36; height: 36; radius: 18
                             anchors.horizontalCenter: parent.horizontalCenter
-                            color: appPage.gridMode ? Colorscheme.secondary : Qt.rgba(0.06, 0.06, 0.1, 0.8)
-                            visible: root.currentMode === 0
+                            color: WidgetState.launcherLayoutMode === "grid" ? Colorscheme.secondary : Qt.rgba(0.06, 0.06, 0.1, 0.8)
 
                             Text {
                                 anchors.centerIn: parent
-                                text: appPage.gridMode ? "▦" : "☰"
+                                text: WidgetState.launcherLayoutMode === "grid" ? "▦" : "☰"
                                 font.family: "JetBrains Mono Nerd Font"
                                 font.pixelSize: 16
-                                color: appPage.gridMode ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
+                                color: WidgetState.launcherLayoutMode === "grid" ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
                             }
 
                             MouseArea {
                                 anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                onClicked: appPage.toggleGrid()
+                                onClicked: root.toggleLayoutMode()
                             }
                         }
                     }

@@ -44,6 +44,8 @@ QtObject {
 
     // Launcher 应用排序模式: "alphabetical" | "frequent"
     property string launcherSortMode: "alphabetical"
+    // Launcher 页面布局模式: "list" | "grid"
+    property string launcherLayoutMode: "list"
 
     // 通知中心窗口是否打开。
     property bool notifOpen: false

@@ -11,14 +11,71 @@ Item {
     signal requestCloseLauncher()
 
     property string wallpaperPath: Quickshell.env("HOME") + "/.config/wallpaper"
+    readonly property bool gridMode: WidgetState.launcherLayoutMode === "grid"
     
     property string currentSelectedPreview: ""
     property bool isLoading: true
 
     ListModel { id: wallpaperModel }
 
-    function decrementCurrentIndex() { wallpaperList.decrementCurrentIndex() }
-    function incrementCurrentIndex() { wallpaperList.incrementCurrentIndex() }
+    function normalizedIndex(index, count) {
+        if (count <= 0) return -1
+        if (WidgetState.launcherCyclicNavigation) return (index % count + count) % count
+        return Math.max(0, Math.min(index, count - 1))
+    }
+
+    function selectIndex(index) {
+        if (wallpaperModel.count === 0) return
+        var idx = normalizedIndex(index, wallpaperModel.count)
+        wallpaperList.currentIndex = idx
+        wallpaperGrid.currentIndex = idx
+        root.currentSelectedPreview = "file://" + wallpaperModel.get(idx).path
+        if (root.gridMode) wallpaperGrid.positionViewAtIndex(idx, GridView.Contain)
+        else wallpaperList.positionViewAtIndex(idx, ListView.Contain)
+    }
+
+    function gridColumns() {
+        return Math.max(1, Math.floor(wallpaperGrid.width / wallpaperGrid.cellWidth))
+    }
+
+    function moveGrid(delta) {
+        selectIndex(wallpaperGrid.currentIndex + delta)
+    }
+
+    function decrementCurrentIndex() {
+        if (gridMode) moveGrid(-gridColumns())
+        else selectIndex(wallpaperList.currentIndex - 1)
+    }
+    function incrementCurrentIndex() {
+        if (gridMode) moveGrid(gridColumns())
+        else selectIndex(wallpaperList.currentIndex + 1)
+    }
+
+    function forceSearchFocus() { keySink.forceActiveFocus() }
+
+    TextInput {
+        id: keySink
+        x: -1000; y: -1000
+        width: 0; height: 0
+        opacity: 0; visible: true
+
+        Keys.onReturnPressed: (event) => { root.applyWallpaper(); event.accepted = true }
+        Keys.onEnterPressed: (event) => { root.applyWallpaper(); event.accepted = true }
+        Keys.onUpPressed: (event) => { root.decrementCurrentIndex(); event.accepted = true }
+        Keys.onDownPressed: (event) => { root.incrementCurrentIndex(); event.accepted = true }
+        Keys.onLeftPressed: (event) => {
+            if (root.gridMode) {
+                root.moveGrid(-1)
+                event.accepted = true
+            }
+        }
+        Keys.onRightPressed: (event) => {
+            if (root.gridMode) {
+                root.moveGrid(1)
+                event.accepted = true
+            }
+        }
+    }
 
     // ==========================================
     // 壁纸扫描引擎
@@ -46,11 +103,8 @@ Item {
 
             for (let i = 0; i < wallpaperModel.count; i++) {
                 if (wallpaperModel.get(i).path === currentPath) {
-                    wallpaperList.currentIndex = i;
-                    // 初始化当前页面的预览变量
+                    selectIndex(i)
                     root.currentSelectedPreview = Colorscheme.currentWallpaperPreview;
-                    // 自动滚动到当前选中的壁纸位置
-                    wallpaperList.positionViewAtIndex(i, ListView.Center);
                     break;
                 }
             }
@@ -71,6 +125,15 @@ Item {
     // UI 渲染层
     // ==========================================
     Text {
+        anchors.top: parent.top
+        anchors.left: parent.left
+        text: "Wallpapers"
+        color: Colorscheme.on_surface
+        font.pixelSize: 18
+        font.bold: true
+    }
+
+    Text {
         anchors.centerIn: parent 
         text: "Scanning wallpapers..."
         color: Colorscheme.on_surface_variant
@@ -80,18 +143,22 @@ Item {
 
     ListView {
         id: wallpaperList
-        width: parent.width
-        height: 504 
-        anchors.verticalCenter: parent.verticalCenter 
+        anchors.fill: parent
+        anchors.topMargin: 42
         clip: true
         model: wallpaperModel
         
-        snapMode: ListView.SnapToItem         
         boundsBehavior: Flickable.StopAtBounds
         keyNavigationWraps: WidgetState.launcherCyclicNavigation
-        highlightRangeMode: ListView.StrictlyEnforceRange 
-        preferredHighlightBegin: 0
-        preferredHighlightEnd: height - 56 
+        visible: !root.gridMode
+
+        ScrollBar.vertical: ScrollBar {
+            width: 6
+            policy: ScrollBar.AsNeeded
+            interactive: true
+            contentItem: Rectangle { radius: 3; color: Colorscheme.on_surface_variant; opacity: 0.4 }
+            background: Rectangle { color: "transparent" }
+        }
         
         highlight: Rectangle { 
             color: Colorscheme.primary
@@ -113,7 +180,7 @@ Item {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    wallpaperList.currentIndex = index
+                    selectIndex(index)
                     applyWallpaper()
                 }
             }
@@ -148,18 +215,96 @@ Item {
         }
     }
 
+    GridView {
+        id: wallpaperGrid
+        anchors.fill: parent
+        anchors.topMargin: 42
+        anchors.bottomMargin: 12
+        clip: true
+        model: wallpaperModel
+        visible: root.gridMode
+
+        cellWidth: Math.max(1, Math.floor((width - 24) / 4))
+        cellHeight: 160
+        boundsBehavior: Flickable.StopAtBounds
+        keyNavigationWraps: WidgetState.launcherCyclicNavigation
+        highlightMoveDuration: 0
+        cacheBuffer: 200
+
+        ScrollBar.vertical: ScrollBar {
+            width: 6
+            policy: ScrollBar.AsNeeded
+            interactive: true
+            contentItem: Rectangle { radius: 3; color: Colorscheme.on_surface_variant; opacity: 0.4 }
+            background: Rectangle { color: "transparent" }
+        }
+
+        highlight: Rectangle { color: Colorscheme.primary; radius: 14 }
+
+        delegate: Item {
+            width: GridView.view.cellWidth
+            height: GridView.view.cellHeight
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    selectIndex(index)
+                    applyWallpaper()
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 6
+                radius: 14
+                color: GridView.isCurrentItem ? Colorscheme.primary : Qt.rgba(Colorscheme.inverse_surface.r, Colorscheme.inverse_surface.g, Colorscheme.inverse_surface.b, 0.06)
+                border.width: GridView.isCurrentItem ? 0 : 1
+                border.color: Colorscheme.glass_outline
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: 8
+
+                    Image {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 92
+                        source: "file://" + model.path
+                        fillMode: Image.PreserveAspectCrop
+                        sourceSize.width: 256
+                        sourceSize.height: 144
+                        asynchronous: true
+                        cache: true
+                        visible: status === Image.Ready
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: model.fileName
+                        color: GridView.isCurrentItem ? Colorscheme.on_primary : Colorscheme.on_surface
+                        font.pixelSize: 12
+                        elide: Text.ElideRight
+                        maximumLineCount: 2
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+        }
+    }
+
     // ==========================================
     // 脚本执行引擎
     // ==========================================
     function applyWallpaper() {
-        if (wallpaperModel.count === 0 || wallpaperList.currentIndex < 0) return
+        var idx = root.gridMode ? wallpaperGrid.currentIndex : wallpaperList.currentIndex
+        if (wallpaperModel.count === 0 || idx < 0) return
         
         if (runScript.running) {
             console.log("Wallpaper switch in progress, ignoring extra triggers...")
             return
         }
         
-        let currentPath = wallpaperModel.get(wallpaperList.currentIndex).path
+        let currentPath = wallpaperModel.get(idx).path
         
         Colorscheme.currentWallpaperPreview = "file://" + currentPath;
         let home = Quickshell.env("HOME")
