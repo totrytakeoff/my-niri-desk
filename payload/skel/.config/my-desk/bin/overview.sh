@@ -23,6 +23,7 @@ if [ -z "$WALLPAPER" ]; then
 fi
 
 mkdir -p "${DESK_WALLPAPER_BLUR_CACHE}" "${DESK_WALLPAPER_OVERVIEW_CACHE}"
+WALLPAPER="$(readlink -f "$WALLPAPER")"
 
 FILENAME=$(basename "$WALLPAPER")
 BLURRED_OVERVIEW="${DESK_WALLPAPER_OVERVIEW_CACHE}/overview_${FILENAME}"
@@ -40,7 +41,11 @@ awww img -n overview "$BLURRED_OVERVIEW" \
   --transition-duration 0.5
 
 # 更新 rofi 壁纸缓存（软链接方式）
-mkdir -p "${DESK_WALLPAPER_ROFI}"
+mkdir -p "${DESK_WALLPAPER_ROFI}" "${HOME}/.cache/wallpaper_rofi" "${DESK_STATE_DIR}/wallpaper"
 rm -f "${DESK_WALLPAPER_ROFI}/current" "${DESK_WALLPAPER_ROFI}/blurred"
+rm -f "${HOME}/.cache/wallpaper_rofi/current" "${HOME}/.cache/wallpaper_rofi/blurred"
+printf '%s\n' "$WALLPAPER" > "${DESK_STATE_DIR}/wallpaper/current"
 ln -sf "$WALLPAPER" "${DESK_WALLPAPER_ROFI}/current"
 ln -sf "$BLURRED" "${DESK_WALLPAPER_ROFI}/blurred"
+ln -sf "$WALLPAPER" "${HOME}/.cache/wallpaper_rofi/current"
+ln -sf "$BLURRED" "${HOME}/.cache/wallpaper_rofi/blurred"

@@ -272,23 +272,7 @@ Item {
     function applyWallpaper() {
         if (wallpaperModel.count === 0) return;
         let currentPath = wallpaperModel.get(view.currentIndex).path;
-        let home = Quickshell.env("HOME");
-        
-        // 1. awww 命令
-        let awwwCmd = "awww img \"" + currentPath + "\" " +
-                  "--transition-type \"any\" " +
-                  "--transition-duration 3 " +
-                  "--transition-fps 60 " +
-                  "--transition-bezier .43,1.19,1,.4";
-
-        // 2. matugen 命令 (保留我们上次加的参数)
-        let matugenCmd = "matugen image \"" + currentPath + "\" --source-color-index 0";
-
-        // 3. overview 脚本命令
-        let overviewCmd = "desk-run overview \"" + currentPath + "\"";
-
-        // 注意这里把 swwwCmd 换成了 awwwCmd
-        let combinedCmd = awwwCmd + " ; " + matugenCmd + " ; " + overviewCmd + " &";
+        let combinedCmd = "desk-run wallpaper apply '" + currentPath.replace(/'/g, "'\\''") + "' &";
 
         runScript.command = ["bash", "-c", combinedCmd];
         runScript.running = true;

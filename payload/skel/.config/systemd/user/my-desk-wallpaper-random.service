@@ -1,0 +1,8 @@
+[Unit]
+Description=Switch to a random my-desk wallpaper
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.config/my-desk/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl
+ExecStart=%h/.config/my-desk/bin/desk-run wallpaper random

@@ -1,0 +1,12 @@
+[Unit]
+Description=Random my-desk wallpaper rotation
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=30min
+RandomizedDelaySec=2min
+Persistent=true
+Unit=my-desk-wallpaper-random.service
+
+[Install]
+WantedBy=timers.target

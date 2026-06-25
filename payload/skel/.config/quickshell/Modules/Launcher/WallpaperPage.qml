@@ -309,12 +309,7 @@ Item {
         Colorscheme.currentWallpaperPreview = "file://" + currentPath;
         let home = Quickshell.env("HOME")
         
-        // 【核心修改】：
-        // 1. 将 swww img 改为 awww img
-        // 2. 为 matugen 加上 --source-color-index 0
-        let scriptContent = "awww img '" + currentPath + "' --transition-type any --transition-duration 3 --transition-fps 60 --transition-bezier .43,1.19,1,.4;\n" +
-                            "matugen image '" + currentPath + "' --source-color-index 0;\n" +
-                            "desk-run overview '" + currentPath + "'"
+        let scriptContent = "desk-run wallpaper apply '" + currentPath.replace(/'/g, "'\\''") + "'"
                            
         runScript.command = ["bash", "-c", scriptContent]
         runScript.running = true

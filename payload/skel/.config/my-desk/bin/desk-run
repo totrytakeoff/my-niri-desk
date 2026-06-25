@@ -47,6 +47,7 @@ case "${tool}" in
 
   # ---- 壁纸 ----
   overview) exec bash "${TOOL_DIR}/overview.sh" "$@" ;;
+  wallpaper) exec bash "${TOOL_DIR}/wallpaper.sh" "$@" ;;
 
   # ---- 会话管理 ----
   session-save)    exec python3 "${TOOL_DIR}/niri-session.py" save "$@" ;;
@@ -82,7 +83,7 @@ case "${tool}" in
   *)
     echo "desk-run: unknown tool '${tool}'" >&2
     echo "Available tools:" >&2
-    echo "  screenshot-{area,screen,ocr} record overview" >&2
+    echo "  screenshot-{area,screen,ocr} record overview wallpaper" >&2
     echo "  session-{save,restore,watch,status}" >&2
     echo "  clipboard-{watch,bridge,sync} sys-{monitor,details}" >&2
     echo "  process-overview session-snapshot notify-db" >&2

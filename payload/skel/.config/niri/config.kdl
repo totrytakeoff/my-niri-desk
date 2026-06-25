@@ -181,9 +181,8 @@ spawn-sh-at-startup "desk-run session-watch"
 spawn-sh-at-startup "awww-daemon -n overview"
 // 给 overview / blur 缓存准备独立的 overview 壁纸守护进程。
 
-spawn-sh-at-startup "sleep 1; wall=$(find \"$HOME/Pictures/wallpapers\" -maxdepth 1 -type f 2>/dev/null | head -n 1); [ -n \"$wall\" ] && awww img \"$wall\" --transition-type none"
-// 登录时如果用户的 ~/Pictures/wallpapers 里有壁纸，就自动用第一张打底。
-// 这样适合打包分发，不会写死到某个特定用户的家目录或某一张私人壁纸。
+spawn-sh-at-startup "sleep 1; desk-run wallpaper restore"
+// 登录时恢复上次主动选择的壁纸；没有历史记录时再回退到默认壁纸目录的第一张。
 
 // spawn-at-startup "swaybg" "-i" "$HOME/.local/share/backgrounds/default.png" "-m" "fill"
 // 旧壁纸方案。改用 awww 后先停用，避免和动态壁纸切换互相覆盖。

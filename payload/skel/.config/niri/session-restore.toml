@@ -44,7 +44,7 @@ include_floating_windows = true
 
 # 这些 app_id 只启动一次，然后等待应用自己把多窗口恢复出来。
 # 适合浏览器 / 编辑器这类自带会话恢复的程序。
-launch_once_app_ids = ["code", "zen"]
+launch_once_app_ids = ["code", "zen", "dev.zed.Zed", "dev.zed.Zed-Dev"]
 
 # 不参与保存/恢复的 app_id。
 exclude_app_ids = []
