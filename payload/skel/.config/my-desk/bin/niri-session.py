@@ -104,8 +104,8 @@ def desktop_entry_paths() -> list[Path]:
 def build_desktop_index() -> list[DesktopEntry]:
     entries = []
     for path in desktop_entry_paths():
-        cp = configparser.ConfigParser(interpolation=None)
         try:
+            cp = configparser.ConfigParser(interpolation=None, strict=False)
             cp.read(path, encoding="utf-8")
         except Exception:
             continue
