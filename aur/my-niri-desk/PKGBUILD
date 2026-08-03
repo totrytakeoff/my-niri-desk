@@ -1,6 +1,6 @@
 pkgname=my-niri-desk
-pkgver=0.2.0
-pkgrel=2
+pkgver=0.3.0
+pkgrel=1
 pkgdesc="Opinionated niri + QuickShell desktop preset"
 arch=('x86_64')
 url="https://github.com/totrytakeoff/my-niri-desk"
@@ -20,6 +20,7 @@ depends=(
   'networkmanager'
   'bluez'
   'bluez-utils'
+  'brightnessctl'
   'wl-clipboard'
   'cliphist'
   'grim'
@@ -66,7 +67,7 @@ source=(
   "${pkgname}.install"
 )
 sha256sums=(
-  'e9f5a1f14ebbdb58665159d698cd27f8e6ceb4582f4561d1e407ddd68adb2d61'
+  '383ba0839a4347818a450a9571fa7afc1037172457bc340ed1f27183524d9885'
   '291f37bad7315bdb3820abd0e603e92044410b9d58106a083d034a7a3164aeb4'
 )
 
@@ -79,6 +80,7 @@ package() {
 
   install -m755 "${project_dir}/scripts/my-niri-desk-apply" "${pkgdir}/usr/bin/my-niri-desk-apply"
   install -m755 "${project_dir}/scripts/configure-desktop-oomd.sh" "${pkgdir}/usr/bin/configure-desktop-oomd"
+  ln -s "/usr/share/${pkgname}/skel/.config/my-desk/bin/desk-run" "${pkgdir}/usr/bin/desk-run"
 
   cp -a "${project_dir}/payload/skel" "${pkgdir}/usr/share/${pkgname}/"
   find "${pkgdir}/usr/share/${pkgname}/skel" -type d -exec chmod 755 {} +
@@ -89,6 +91,7 @@ package() {
 This package installs:
 - /usr/bin/my-niri-desk-apply
 - /usr/bin/configure-desktop-oomd
+- /usr/bin/desk-run
 - /usr/share/my-niri-desk/skel
 
 Apply the desktop preset for the current user with:
