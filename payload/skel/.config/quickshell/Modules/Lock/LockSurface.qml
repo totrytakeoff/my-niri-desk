@@ -56,6 +56,24 @@ Item {
         }
     }
 
+    // PAM 结果驱动 UI 状态。认证失败时从不离开当前界面；
+    // 只有成功信号能触发退场动画。
+    Connections {
+        target: root.context ? root.context : null
+        ignoreUnknownSignals: true
+
+        function onAuthenticationSucceeded() {
+            root.startExitAnimation()
+        }
+
+        function onAuthenticationFailed() {
+            root.isExiting = false
+            morphContainer.opacity = 1
+            root.animProgress = 1
+            if (termLoader.item) termLoader.item.forceActiveFocus()
+        }
+    }
+
     // ================= 3. 入场动画 =================
     SequentialAnimation {
         id: startupAnim
@@ -220,7 +238,7 @@ Item {
                     Loader {
                         id: termLoader
                         Layout.preferredWidth: 320
-                        Layout.preferredHeight: 50
+                        Layout.preferredHeight: 76
                         Layout.alignment: Qt.AlignHCenter
                         source: "./Cards/AuthCard.qml"
                         
@@ -242,7 +260,7 @@ Item {
                             target: termLoader.item
                             ignoreUnknownSignals: true
                             function onRequestUnlock() {
-                                root.startExitAnimation()
+                                if (root.context) root.context.tryUnlock()
                             }
                         }
                     }
@@ -269,7 +287,9 @@ Item {
         repeat: true
         onTriggered: {
             // 只要焦点不在输入框，就抢回来
-            if (termLoader.item && !termLoader.item.activeFocus) {
+            if (termLoader.item
+                    && (!root.context || !root.context.unlockInProgress)
+                    && !termLoader.item.activeFocus) {
                 termLoader.item.forceActiveFocus()
             }
         }
@@ -280,7 +300,7 @@ Item {
     property bool isExiting: false
 
     function startExitAnimation() {
-        if (!isExiting) {
+        if (!isExiting && root.context && root.context.authenticated) {
             isExiting = true
             exitAnim.start()
         }
@@ -316,10 +336,10 @@ Item {
             duration: 300
         }
 
-        // 3. 动画结束后，执行真实的底层解锁逻辑
+        // 3. PAM 已成功且退场结束后，才执行真实的底层解锁逻辑。
         onFinished: {
             if (root.context) {
-                root.context.tryUnlock()
+                root.context.finishUnlock()
             }
         }
     }

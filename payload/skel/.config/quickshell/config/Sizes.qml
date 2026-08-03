@@ -16,7 +16,11 @@ Singleton {
     readonly property string fontFamilyMono: "JetBrains Mono Nerd Font"
     readonly property string fontIcon: "LXGW WenKai GB Screen"
     readonly property real cornerRadius: 10
-    readonly property real barHeight: 36
+    // Bar 窗口负责给平铺布局预留 52px；内部胶囊统一为 36px。
+    readonly property real barWindowHeight: 52
+    readonly property real barPillHeight: 36
+    // 兼容旧组件；新代码应使用语义更明确的 barPillHeight。
+    readonly property real barHeight: barPillHeight
     // 顶栏系统指标收起时默认显示哪一项。
     // 可选值: "ram" | "cpu" | "temp" | "disk"
     readonly property string collapsedSysMetric: "ram"

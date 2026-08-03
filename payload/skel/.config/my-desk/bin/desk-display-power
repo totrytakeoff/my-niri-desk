@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+action="${1:-status}"
+runtime_root="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+state_dir="$runtime_root/my-desk"
+state_file="$state_dir/active-blank.state"
+lock_file="$state_dir/active-blank.lock"
+
+mkdir -p "$state_dir"
+exec 9>"$lock_file"
+flock 9
+
+read_saved_state() {
+    [[ -f "$state_file" ]] || return 1
+
+    IFS=',' read -r saved_device saved_brightness < "$state_file"
+    [[ "$saved_device" =~ ^[A-Za-z0-9_.:-]+$ ]] || return 1
+    [[ "$saved_brightness" =~ ^[0-9]+$ ]] || return 1
+}
+
+turn_off() {
+    if read_saved_state; then
+        printf 'ACTIVE_OFF\n'
+        return
+    fi
+
+    local info device class brightness percent maximum temporary
+    info=$(brightnessctl --class=backlight --machine-readable info | sed -n '1p')
+    IFS=',' read -r device class brightness percent maximum <<< "$info"
+
+    [[ "$device" =~ ^[A-Za-z0-9_.:-]+$ ]]
+    [[ "$brightness" =~ ^[0-9]+$ ]]
+    [[ "$maximum" =~ ^[0-9]+$ ]]
+
+    temporary="$state_file.tmp.$$"
+    printf '%s,%s\n' "$device" "$brightness" > "$temporary"
+    mv -f "$temporary" "$state_file"
+
+    brightnessctl --quiet --device="$device" set 0
+    if ! niri msg action power-off-monitors >/dev/null; then
+        brightnessctl --quiet --device="$device" set "$brightness" || true
+        rm -f "$state_file"
+        return 1
+    fi
+
+    printf 'ACTIVE_OFF\n'
+}
+
+turn_on() {
+    niri msg action power-on-monitors >/dev/null || true
+
+    if read_saved_state; then
+        brightnessctl --quiet --device="$saved_device" set "$saved_brightness"
+        rm -f "$state_file"
+    else
+        local info device class brightness percent maximum
+        info=$(brightnessctl --class=backlight --machine-readable info | sed -n '1p')
+        IFS=',' read -r device class brightness percent maximum <<< "$info"
+        if [[ "$device" =~ ^[A-Za-z0-9_.:-]+$ && "$brightness" == "0" ]]; then
+            brightnessctl --quiet --device="$device" set 30%
+        fi
+    fi
+
+    printf 'ACTIVE_ON\n'
+}
+
+case "$action" in
+off)
+    turn_off
+    ;;
+on|recover)
+    turn_on
+    ;;
+toggle)
+    if [[ -f "$state_file" ]]; then
+        turn_on
+    else
+        turn_off
+    fi
+    ;;
+status)
+    if read_saved_state; then
+        printf 'ACTIVE_OFF,%s,%s\n' "$saved_device" "$saved_brightness"
+    else
+        printf 'ACTIVE_ON\n'
+    fi
+    ;;
+*)
+    printf 'usage: %s {off|on|recover|toggle|status}\n' "$0" >&2
+    exit 2
+    ;;
+esac

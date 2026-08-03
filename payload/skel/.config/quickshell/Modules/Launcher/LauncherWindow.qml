@@ -6,9 +6,11 @@ import Quickshell
 import Quickshell.Io          // 【新增】：必须引入 IO 模块以支持命令行 Process
 import Quickshell.Wayland
 import qs.config
+import qs.Services
 
 PanelWindow {
     id: root
+    screen: Niri.focusedScreen
     
     visible: false
     color: "transparent" 
@@ -34,6 +36,12 @@ PanelWindow {
 
     property bool toolsExpanded: currentMode === 4 && toolsPage.expanded
     property bool launcherGridExpanded: WidgetState.launcherLayoutMode === "grid" && !toolsExpanded
+    readonly property bool hasVisibleSearch: currentMode === 0 || currentMode === 1 || currentMode === 3
+    readonly property string currentQuery: currentMode === 0 ? appPage.query
+        : (currentMode === 1 ? windowPage.query
+        : (currentMode === 3 ? filePage.query : ""))
+    readonly property string searchPlaceholder: currentMode === 0 ? "输入应用名称…"
+        : (currentMode === 1 ? "输入窗口标题…" : "至少输入 2 个字符搜索文件…")
 
     // ==========================================
     // 【全局壁纸强制同步引擎】
@@ -62,13 +70,11 @@ PanelWindow {
             syncGlobalWallpaper.running = true;
 
             focusCurrentPage()
-            
-            // // 每次打开都正常播放入场动画
-            // mainUI.opacity = 0.0
-            // uiTranslate.y = 300
-            // openAnim.start()
-            mainUI.opacity = 1.0
+
+            mainUI.opacity = 0.0
+            mainUI.scale = 0.97
             uiTranslate.y = 0
+            openAnim.restart()
         }
     }
 
@@ -79,10 +85,9 @@ PanelWindow {
     }
 
     function requestClose() {
-        // if (closeAnim.running || !root.visible) return
-        // closeAnim.start()
         if (!root.visible) return
-        root.visible = false
+        if (closeAnim.running) return
+        closeAnim.restart()
     }
 
     function toggleWindow() {
@@ -133,6 +138,7 @@ PanelWindow {
         anchors.verticalCenter: parent.verticalCenter
         
         opacity: 1.0 // 原来是0
+        scale: 1.0
         
         transform: Translate {
             id: uiTranslate
@@ -180,6 +186,43 @@ PanelWindow {
         color: "transparent" 
         radius: 20 
         focus: true 
+
+        ParallelAnimation {
+            id: openAnim
+            NumberAnimation {
+                target: mainUI
+                property: "opacity"
+                to: 1.0
+                duration: 160
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: mainUI
+                property: "scale"
+                to: 1.0
+                duration: 220
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        ParallelAnimation {
+            id: closeAnim
+            NumberAnimation {
+                target: mainUI
+                property: "opacity"
+                to: 0.0
+                duration: 140
+                easing.type: Easing.InCubic
+            }
+            NumberAnimation {
+                target: mainUI
+                property: "scale"
+                to: 0.98
+                duration: 140
+                easing.type: Easing.InCubic
+            }
+            onFinished: root.visible = false
+        }
         
         // 全局键盘网关
         Keys.onUpPressed: (event) => {
@@ -390,6 +433,14 @@ PanelWindow {
                                 font.pixelSize: 20
                                 color: root.currentMode === 0 ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
                             }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.currentMode = 0
+                                ToolTip.visible: containsMouse
+                                ToolTip.text: "Applications"
+                            }
                         }
                         
                         // 标签页 2：窗口
@@ -406,6 +457,14 @@ PanelWindow {
                                 font.family: "JetBrains Mono Nerd Font"
                                 font.pixelSize: 20
                                 color: root.currentMode === 1 ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.currentMode = 1
+                                ToolTip.visible: containsMouse
+                                ToolTip.text: "Windows"
                             }
                         }
                         
@@ -424,6 +483,14 @@ PanelWindow {
                                 font.pixelSize: 20
                                 color: root.currentMode === 2 ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
                             }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.currentMode = 2
+                                ToolTip.visible: containsMouse
+                                ToolTip.text: "Wallpapers"
+                            }
                         }
                         
                         // 标签页 4：文件检索
@@ -441,6 +508,14 @@ PanelWindow {
                                 font.pixelSize: 20
                                 color: root.currentMode === 3 ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
                             }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.currentMode = 3
+                                ToolTip.visible: containsMouse
+                                ToolTip.text: "Files"
+                            }
                         }
                         
                         // 标签页 5：常用工具
@@ -457,6 +532,14 @@ PanelWindow {
                                 font.family: "JetBrains Mono Nerd Font"
                                 font.pixelSize: 20
                                 color: root.currentMode === 4 ? Qt.rgba(0.06, 0.06, 0.1, 1.0) : Colorscheme.secondary
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.currentMode = 4
+                                ToolTip.visible: containsMouse
+                                ToolTip.text: "Tools"
                             }
                         }
 
@@ -491,10 +574,56 @@ PanelWindow {
                         anchors.fill: parent
                         color: Qt.rgba(0.06, 0.06, 0.1, 0.85) 
                     }
+
+                    Rectangle {
+                        id: visibleSearch
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.topMargin: 24
+                        anchors.leftMargin: 30
+                        anchors.rightMargin: 30
+                        height: 42
+                        radius: 13
+                        visible: root.hasVisibleSearch
+                        color: Qt.alpha(Colorscheme.surface_container_highest, 0.86)
+                        border.width: 1
+                        border.color: Colorscheme.glass_outline
+                        z: 2
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 13
+                            anchors.rightMargin: 13
+                            spacing: 10
+
+                            Text {
+                                text: "search"
+                                font.family: "Material Symbols Rounded"
+                                font.pixelSize: 20
+                                color: Colorscheme.primary
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.currentQuery !== "" ? root.currentQuery : root.searchPlaceholder
+                                color: root.currentQuery !== "" ? Colorscheme.on_surface : Colorscheme.on_surface_variant
+                                font.pixelSize: 13
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.IBeamCursor
+                            onClicked: root.focusCurrentPage()
+                        }
+                    }
                     
                     StackLayout {
                         anchors.fill: parent
                         anchors.margins: 30
+                        anchors.topMargin: root.hasVisibleSearch ? 82 : 30
                         currentIndex: root.currentMode 
                         
                         AppPage { 

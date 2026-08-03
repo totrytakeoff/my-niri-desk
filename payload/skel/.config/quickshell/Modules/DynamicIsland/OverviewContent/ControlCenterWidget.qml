@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
+import qs.Services as Services
 import qs.config
 import qs.Modules.DynamicIsland.OverviewContent 
 import qs.Widget.common
@@ -234,7 +235,7 @@ Item {
                 border.width: 1
                 border.color: Colorscheme.glass_outline
                 
-                property int currentIndex: 1
+                readonly property int currentIndex: Services.Power.profileKey === "power-saver" ? 0 : (Services.Power.profileKey === "performance" ? 2 : 1)
                 property var modes: ["", "", ""]
                 
                 Rectangle {
@@ -257,6 +258,7 @@ Item {
                         Item {
                             width: powerBar.width / 3
                             height: powerBar.height
+                            opacity: index === 2 && !Services.Power.hasPerformanceProfile ? 0.38 : 1
                             Text { 
                                 anchors.centerIn: parent
                                 text: powerBar.modes[index]
@@ -267,11 +269,11 @@ Item {
                             }
                             MouseArea { 
                                 anchors.fill: parent
+                                enabled: index !== 2 || Services.Power.hasPerformanceProfile
                                 cursorShape: Qt.PointingHandCursor 
                                 onClicked: {
-                                    powerBar.currentIndex = index;
                                     let mode = index === 0 ? "power-saver" : (index === 1 ? "balanced" : "performance");
-                                    Quickshell.execDetached(["powerprofilesctl", "set", mode]);
+                                    Services.Power.setProfile(mode);
                                 }
                             }
                         }
@@ -309,9 +311,9 @@ Item {
                 Layout.column: 1
                 Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
                 icon: ""
-                tip: "Toggle caffeine mode"
-                active: ControlBackend.caffeineEnabled
-                onClicked: ControlBackend.toggleCaffeine()
+                tip: Services.Power.caffeineEnabled ? "关闭 Caffeine 模式" : "开启 Caffeine 模式"
+                active: Services.Power.caffeineEnabled
+                onClicked: Services.Power.toggleCaffeine()
             } 
 
             CornerBtn { 
@@ -333,7 +335,7 @@ Item {
                 tip: "Open power menu"
                 bgColor: Qt.alpha(Colorscheme.error_container, 0.78)
                 fgColor: Colorscheme.on_error_container
-                onClicked: Quickshell.execDetached(["desk-app-run", "--", "wlogout", "-p", "layer-shell", "-b", "2"])
+                onClicked: WidgetState.openQuickSettings("power")
             }
         }
     }

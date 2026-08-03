@@ -13,6 +13,7 @@ Item {
     signal requestCloseLauncher()
 
     property var filteredAppsModel: []
+    property alias query: searchBox.text
     readonly property bool gridMode: WidgetState.launcherLayoutMode === "grid"
 
     function normalizedIndex(index, count) {

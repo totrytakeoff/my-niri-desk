@@ -9,6 +9,7 @@ Item {
     id: root
 
     signal requestCloseLauncher()
+    property alias query: searchBox.text
 
     property bool searching: false
     readonly property bool gridMode: WidgetState.launcherLayoutMode === "grid"

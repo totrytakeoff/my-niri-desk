@@ -2,12 +2,11 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import qs.config
 import qs.Widget.common
+import qs.config
 
 Item {
     id: root
-    Theme { id: theme }
 
     property bool isForeground: WidgetState.leftSidebarOpen && WidgetState.leftSidebarView === "processes"
     property int processCount: 0
@@ -28,13 +27,81 @@ Item {
     property int selectedAgeSec: 0
 
     function refresh() {
-        if (!procList.running) {
+        if (!procList.running)
             procList.running = true;
-        }
+
+    }
+
+    function statusLabel(status) {
+        if (status === "running")
+            return "RUN";
+
+        if (status === "sleeping")
+            return "SLEEP";
+
+        if (status === "disk-sleep")
+            return "IO";
+
+        if (status === "stopped")
+            return "STOP";
+
+        if (status === "zombie")
+            return "ZOMB";
+
+        return status.toUpperCase();
+    }
+
+    function statusColor(status) {
+        if (status === "running")
+            return Colorscheme.primary;
+
+        if (status === "sleeping")
+            return Colorscheme.secondary;
+
+        if (status === "disk-sleep")
+            return Colorscheme.tertiary;
+
+        if (status === "stopped" || status === "zombie")
+            return Colorscheme.error;
+
+        return theme.subtext;
+    }
+
+    function ageLabel(seconds) {
+        if (seconds < 60)
+            return seconds + "s";
+
+        if (seconds < 3600)
+            return Math.floor(seconds / 60) + "m";
+
+        if (seconds < 86400)
+            return Math.floor(seconds / 3600) + "h";
+
+        return Math.floor(seconds / 86400) + "d";
+    }
+
+    function selectProcess(row) {
+        if (!row)
+            return ;
+
+        root.selectedPid = row.pid;
+        root.selectedName = row.name;
+        root.selectedCmdline = row.cmdline;
+        root.selectedStatus = row.status;
+        root.selectedCpu = row.cpu;
+        root.selectedMemMb = row.mem_mb;
+        root.selectedMemPercent = row.mem_percent;
+        root.selectedAgeSec = row.age_sec;
     }
 
     onIsForegroundChanged: {
-        if (isForeground) refresh();
+        if (isForeground)
+            refresh();
+
+    }
+
+    Theme {
+        id: theme
     }
 
     Timer {
@@ -46,11 +113,9 @@ Item {
 
     Process {
         id: procList
-        command: [
-            "desk-run", "process-overview",
-            "--limit", "28",
-            "--sort", root.sortMode
-        ]
+
+        command: ["desk-run", "process-overview", "--limit", "28", "--sort", root.sortMode]
+
         stdout: SplitParser {
             onRead: (data) => {
                 try {
@@ -66,7 +131,6 @@ Item {
                     root.sampleCpuTotal = payload.summary ? payload.summary.sample_cpu_total : 0;
                     root.sampleMemMb = payload.summary ? payload.summary.sample_mem_mb : 0;
                     root.sampleMemPercent = payload.summary ? payload.summary.sample_mem_percent : 0;
-
                     if (root.selectedPid !== -1) {
                         let found = false;
                         for (let i = 0; i < rows.length; ++i) {
@@ -78,99 +142,37 @@ Item {
                         }
                         if (!found && rows.length > 0)
                             root.selectProcess(rows[0]);
+
                     } else if (rows.length > 0) {
                         root.selectProcess(rows[0]);
                     }
-                } catch (e) {}
+                } catch (e) {
+                }
             }
         }
+
     }
 
     Process {
         id: terminateProc
+
         property string targetPid: ""
+
         command: ["kill", "-TERM", targetPid]
         onExited: root.refresh()
     }
 
     Process {
         id: forceTerminateProc
+
         property string targetPid: ""
+
         command: ["kill", "-KILL", targetPid]
         onExited: root.refresh()
     }
 
-    ListModel { id: processModel }
-
-    component SortChip : Rectangle {
-        property string value: ""
-        property string label: ""
-        property bool active: root.sortMode === value
-
-        radius: 16
-        implicitWidth: chipLabel.implicitWidth + 20
-        implicitHeight: 30
-        color: active ? Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.18)
-                      : Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.22)
-        border.width: 1
-        border.color: active ? Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.28)
-                             : Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.24)
-
-        Text {
-            id: chipLabel
-            anchors.centerIn: parent
-            text: label
-            font.pixelSize: 11
-            font.bold: true
-            color: active ? Colorscheme.primary : theme.subtext
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                root.sortMode = value;
-                root.refresh();
-            }
-        }
-    }
-
-    function statusLabel(status) {
-        if (status === "running") return "RUN";
-        if (status === "sleeping") return "SLEEP";
-        if (status === "disk-sleep") return "IO";
-        if (status === "stopped") return "STOP";
-        if (status === "zombie") return "ZOMB";
-        return status.toUpperCase();
-    }
-
-    function statusColor(status) {
-        if (status === "running") return Colorscheme.primary;
-        if (status === "sleeping") return Colorscheme.secondary;
-        if (status === "disk-sleep") return Colorscheme.tertiary;
-        if (status === "stopped" || status === "zombie") return Colorscheme.error;
-        return theme.subtext;
-    }
-
-    function ageLabel(seconds) {
-        if (seconds < 60) return seconds + "s";
-        if (seconds < 3600) return Math.floor(seconds / 60) + "m";
-        if (seconds < 86400) return Math.floor(seconds / 3600) + "h";
-        return Math.floor(seconds / 86400) + "d";
-    }
-
-    function selectProcess(row) {
-        if (!row)
-            return;
-        root.selectedPid = row.pid;
-        root.selectedName = row.name;
-        root.selectedCmdline = row.cmdline;
-        root.selectedStatus = row.status;
-        root.selectedCpu = row.cpu;
-        root.selectedMemMb = row.mem_mb;
-        root.selectedMemPercent = row.mem_percent;
-        root.selectedAgeSec = row.age_sec;
+    ListModel {
+        id: processModel
     }
 
     Flickable {
@@ -182,6 +184,7 @@ Item {
 
         ColumnLayout {
             id: contentCol
+
             width: parent.width
             spacing: 14
 
@@ -190,12 +193,13 @@ Item {
                 Layout.preferredHeight: headerCol.implicitHeight + 32
                 implicitHeight: headerCol.implicitHeight + 32
                 radius: 18
-                color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.92)
+                color: theme.glass_card_subtle
                 border.width: 1
-                border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.42)
+                border.color: theme.glass_outline_soft
 
                 ColumnLayout {
                     id: headerCol
+
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 10
@@ -220,6 +224,7 @@ Item {
                                 font.pixelSize: 12
                                 color: theme.subtext
                             }
+
                         }
 
                         Rectangle {
@@ -242,7 +247,9 @@ Item {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: root.refresh()
                             }
+
                         }
+
                     }
 
                     Text {
@@ -255,19 +262,32 @@ Item {
                         Layout.fillWidth: true
                         spacing: 8
 
-                        SortChip { value: "cpu"; label: "CPU" }
-                        SortChip { value: "mem"; label: "内存" }
-                        SortChip { value: "name"; label: "名称" }
+                        SortChip {
+                            value: "cpu"
+                            label: "CPU"
+                        }
 
-                        Item { Layout.fillWidth: true }
+                        SortChip {
+                            value: "mem"
+                            label: "内存"
+                        }
+
+                        SortChip {
+                            value: "name"
+                            label: "名称"
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
 
                         Rectangle {
                             Layout.preferredWidth: 150
                             Layout.preferredHeight: 32
                             radius: 16
-                            color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.18)
+                            color: theme.glass_card_subtle
                             border.width: 1
-                            border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.22)
+                            border.color: theme.glass_outline_soft
 
                             RowLayout {
                                 anchors.fill: parent
@@ -283,6 +303,7 @@ Item {
 
                                 TextInput {
                                     id: searchInput
+
                                     Layout.fillWidth: true
                                     color: theme.text
                                     font.pixelSize: 12
@@ -299,9 +320,13 @@ Item {
                                         font.pixelSize: 12
                                         visible: !searchInput.text && !searchInput.activeFocus
                                     }
+
                                 }
+
                             }
+
                         }
+
                     }
 
                     RowLayout {
@@ -312,66 +337,105 @@ Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 58
                             radius: 16
-                            color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.18)
+                            color: theme.glass_card_subtle
                             border.width: 1
-                            border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.18)
+                            border.color: theme.glass_outline_soft
 
                             ColumnLayout {
                                 anchors.fill: parent
                                 anchors.margins: 12
                                 spacing: 2
 
-                                Text { text: "系统 CPU"; font.pixelSize: 10; color: theme.subtext }
-                                Text { text: root.totalCpuPercent.toFixed(1) + "%"; font.pixelSize: 18; font.bold: true; color: Colorscheme.primary }
+                                Text {
+                                    text: "系统 CPU"
+                                    font.pixelSize: 10
+                                    color: theme.subtext
+                                }
+
+                                Text {
+                                    text: root.totalCpuPercent.toFixed(1) + "%"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    color: Colorscheme.primary
+                                }
+
                             }
+
                         }
 
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 58
                             radius: 16
-                            color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.18)
+                            color: theme.glass_card_subtle
                             border.width: 1
-                            border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.18)
+                            border.color: theme.glass_outline_soft
 
                             ColumnLayout {
                                 anchors.fill: parent
                                 anchors.margins: 12
                                 spacing: 2
 
-                                Text { text: "系统内存"; font.pixelSize: 10; color: theme.subtext }
-                                Text { text: root.totalMemPercent.toFixed(1) + "%"; font.pixelSize: 18; font.bold: true; color: Colorscheme.secondary }
+                                Text {
+                                    text: "系统内存"
+                                    font.pixelSize: 10
+                                    color: theme.subtext
+                                }
+
+                                Text {
+                                    text: root.totalMemPercent.toFixed(1) + "%"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    color: Colorscheme.secondary
+                                }
+
                             }
+
                         }
 
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 58
                             radius: 16
-                            color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.18)
+                            color: theme.glass_card_subtle
                             border.width: 1
-                            border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.18)
+                            border.color: theme.glass_outline_soft
 
                             ColumnLayout {
                                 anchors.fill: parent
                                 anchors.margins: 12
                                 spacing: 2
 
-                                Text { text: "当前列表"; font.pixelSize: 10; color: theme.subtext }
-                                Text { text: root.sampleMemMb.toFixed(0) + "M"; font.pixelSize: 18; font.bold: true; color: theme.text }
+                                Text {
+                                    text: "当前列表"
+                                    font.pixelSize: 10
+                                    color: theme.subtext
+                                }
+
+                                Text {
+                                    text: root.sampleMemMb.toFixed(0) + "M"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    color: theme.text
+                                }
+
                             }
+
                         }
+
                     }
+
                 }
+
             }
 
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 112
                 radius: 16
-                color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.88)
+                color: theme.glass_card_subtle
                 border.width: 1
-                border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.42)
+                border.color: theme.glass_outline_soft
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -404,7 +468,9 @@ Item {
                                 font.bold: true
                                 color: root.statusColor(root.selectedStatus)
                             }
+
                         }
+
                     }
 
                     Text {
@@ -419,12 +485,34 @@ Item {
                         Layout.fillWidth: true
                         spacing: 12
 
-                        Text { text: "CPU " + root.selectedCpu.toFixed(1) + "%"; font.pixelSize: 11; color: Colorscheme.primary }
-                        Text { text: "内存 " + root.selectedMemMb.toFixed(0) + "M"; font.pixelSize: 11; color: Colorscheme.secondary }
-                        Text { text: "占比 " + root.selectedMemPercent.toFixed(1) + "%"; font.pixelSize: 11; color: theme.text }
-                        Text { text: "运行 " + root.ageLabel(root.selectedAgeSec); font.pixelSize: 11; color: theme.subtext }
+                        Text {
+                            text: "CPU " + root.selectedCpu.toFixed(1) + "%"
+                            font.pixelSize: 11
+                            color: Colorscheme.primary
+                        }
+
+                        Text {
+                            text: "内存 " + root.selectedMemMb.toFixed(0) + "M"
+                            font.pixelSize: 11
+                            color: Colorscheme.secondary
+                        }
+
+                        Text {
+                            text: "占比 " + root.selectedMemPercent.toFixed(1) + "%"
+                            font.pixelSize: 11
+                            color: theme.text
+                        }
+
+                        Text {
+                            text: "运行 " + root.ageLabel(root.selectedAgeSec)
+                            font.pixelSize: 11
+                            color: theme.subtext
+                        }
+
                     }
+
                 }
+
             }
 
             Rectangle {
@@ -432,12 +520,13 @@ Item {
                 Layout.preferredHeight: processCol.implicitHeight + 24
                 implicitHeight: processCol.implicitHeight + 24
                 radius: 16
-                color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.88)
+                color: theme.glass_card_subtle
                 border.width: 1
-                border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.42)
+                border.color: theme.glass_outline_soft
 
                 ColumnLayout {
                     id: processCol
+
                     anchors.fill: parent
                     anchors.margins: 12
                     spacing: 8
@@ -446,10 +535,38 @@ Item {
                         Layout.fillWidth: true
                         spacing: 10
 
-                        Text { text: "进程"; font.bold: true; font.pixelSize: 11; color: theme.subtext; Layout.fillWidth: true }
-                        Text { text: "CPU"; font.bold: true; font.pixelSize: 11; color: theme.subtext; Layout.preferredWidth: 46 }
-                        Text { text: "MEM"; font.bold: true; font.pixelSize: 11; color: theme.subtext; Layout.preferredWidth: 58 }
-                        Text { text: "操作"; font.bold: true; font.pixelSize: 11; color: theme.subtext; Layout.preferredWidth: 56 }
+                        Text {
+                            text: "进程"
+                            font.bold: true
+                            font.pixelSize: 11
+                            color: theme.subtext
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: "CPU"
+                            font.bold: true
+                            font.pixelSize: 11
+                            color: theme.subtext
+                            Layout.preferredWidth: 46
+                        }
+
+                        Text {
+                            text: "MEM"
+                            font.bold: true
+                            font.pixelSize: 11
+                            color: theme.subtext
+                            Layout.preferredWidth: 58
+                        }
+
+                        Text {
+                            text: "操作"
+                            font.bold: true
+                            font.pixelSize: 11
+                            color: theme.subtext
+                            Layout.preferredWidth: 56
+                        }
+
                     }
 
                     Repeater {
@@ -467,15 +584,27 @@ Item {
 
                             Layout.fillWidth: true
                             Layout.preferredHeight: visible ? 84 : 0
-                            visible: root.filterText === ""
-                                || name.toLowerCase().includes(root.filterText.toLowerCase())
-                                || cmdline.toLowerCase().includes(root.filterText.toLowerCase())
+                            visible: root.filterText === "" || name.toLowerCase().includes(root.filterText.toLowerCase()) || cmdline.toLowerCase().includes(root.filterText.toLowerCase())
                             radius: 14
-                            color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.22)
+                            color: theme.glass_card_subtle
                             border.width: 1
-                            border.color: root.selectedPid === pid
-                                ? Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.42)
-                                : Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.24)
+                            border.color: root.selectedPid === pid ? Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.42) : theme.glass_outline_soft
+
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.LeftButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.selectProcess({
+                                    "pid": pid,
+                                    "name": name,
+                                    "cpu": cpu,
+                                    "mem_mb": mem_mb,
+                                    "mem_percent": mem_percent,
+                                    "status": status,
+                                    "cmdline": cmdline,
+                                    "age_sec": age_sec
+                                })
+                            }
 
                             RowLayout {
                                 anchors.fill: parent
@@ -512,6 +641,7 @@ Item {
                                                 font.bold: true
                                                 color: root.statusColor(status)
                                             }
+
                                         }
 
                                         Text {
@@ -527,6 +657,7 @@ Item {
                                             elide: Text.ElideRight
                                             Layout.fillWidth: true
                                         }
+
                                     }
 
                                     RowLayout {
@@ -545,6 +676,7 @@ Item {
                                                 radius: 3
                                                 color: cpu >= 30 ? Colorscheme.error : Colorscheme.primary
                                             }
+
                                         }
 
                                         Rectangle {
@@ -559,15 +691,11 @@ Item {
                                                 radius: 3
                                                 color: Colorscheme.secondary
                                             }
-                                        }
-                                    }
-                                }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    acceptedButtons: Qt.LeftButton
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.selectProcess({ pid, name, cpu, mem_mb, mem_percent, status, cmdline, age_sec })
+                                        }
+
+                                    }
+
                                 }
 
                                 Text {
@@ -615,15 +743,16 @@ Item {
                                                 terminateProc.running = true;
                                             }
                                         }
+
                                     }
 
                                     Rectangle {
                                         Layout.preferredWidth: 54
                                         Layout.preferredHeight: 28
                                         radius: 14
-                                        color: Qt.rgba(Colorscheme.error.r, Colorscheme.error.g, Colorscheme.error.b, 0.20)
+                                        color: Qt.rgba(Colorscheme.error.r, Colorscheme.error.g, Colorscheme.error.b, 0.2)
                                         border.width: 1
-                                        border.color: Qt.rgba(Colorscheme.error.r, Colorscheme.error.g, Colorscheme.error.b, 0.40)
+                                        border.color: Qt.rgba(Colorscheme.error.r, Colorscheme.error.g, Colorscheme.error.b, 0.4)
 
                                         Text {
                                             anchors.centerIn: parent
@@ -641,13 +770,57 @@ Item {
                                                 forceTerminateProc.running = true;
                                             }
                                         }
+
                                     }
+
                                 }
+
                             }
+
                         }
+
                     }
+
                 }
+
+            }
+
+        }
+
+    }
+
+    component SortChip: Rectangle {
+        property string value: ""
+        property string label: ""
+        property bool active: root.sortMode === value
+
+        radius: 16
+        implicitWidth: chipLabel.implicitWidth + 20
+        implicitHeight: 30
+        color: active ? Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.18) : theme.glass_card_subtle
+        border.width: 1
+        border.color: active ? Qt.rgba(Colorscheme.primary.r, Colorscheme.primary.g, Colorscheme.primary.b, 0.28) : theme.glass_outline_soft
+
+        Text {
+            id: chipLabel
+
+            anchors.centerIn: parent
+            text: label
+            font.pixelSize: 11
+            font.bold: true
+            color: active ? Colorscheme.primary : theme.subtext
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                root.sortMode = value;
+                root.refresh();
             }
         }
+
     }
+
 }

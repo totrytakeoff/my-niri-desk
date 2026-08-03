@@ -6,17 +6,23 @@ import qs.config
 FocusScope {
     id: root
     property var context: null
+    readonly property bool busy: context ? context.unlockInProgress : false
+    readonly property bool failed: context ? context.showFailure : false
     
     signal requestUnlock()
     
     Layout.fillWidth: true
-    Layout.preferredHeight: 50
+    Layout.preferredHeight: 76
 
     Component.onCompleted: input.forceActiveFocus()
     onActiveFocusChanged: if (activeFocus) input.forceActiveFocus()
 
     Rectangle {
-        anchors.fill: parent
+        id: inputFrame
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 50
         color: Colorscheme.surface_container_highest 
         radius: 25 
         border.width: 1
@@ -59,13 +65,18 @@ FocusScope {
                     selectedTextColor: "transparent"
                     focus: true
                     echoMode: TextInput.Password
+                    enabled: !root.busy
                     
                     onAccepted: {
-                        root.requestUnlock()
+                        if (!root.busy && text.length > 0) root.requestUnlock()
                     }
                     
                     onTextChanged: {
                         if(root.context) root.context.currentText = text
+                        if(root.context && root.context.showFailure && text.length > 0) {
+                            root.context.showFailure = false
+                            root.context.authState = "idle"
+                        }
                         
                         // 【核心修复】：精准同步密码点模型，不牵连旧数据，彻底解决闪烁
                         var len = text.length
@@ -83,7 +94,12 @@ FocusScope {
                         function onCurrentTextChanged() {
                             if (root.context && input.text !== root.context.currentText) {
                                 input.text = root.context.currentText
-                                if (input.text === "") shakeAnim.start()
+                            }
+                        }
+                        function onShowFailureChanged() {
+                            if (root.context && root.context.showFailure) {
+                                shakeAnim.restart()
+                                input.forceActiveFocus()
                             }
                         }
                     }
@@ -150,7 +166,7 @@ FocusScope {
                 Layout.alignment: Qt.AlignVCenter
                 width: 32; height: 32; radius: 16
                 
-                property bool hasText: input.text.length > 0
+                property bool hasText: input.text.length > 0 && !root.busy
                 
                 color: hasText ? Colorscheme.primary : "transparent"
                 border.width: hasText ? 0 : 1
@@ -159,7 +175,7 @@ FocusScope {
                 
                 Text { 
                     anchors.centerIn: parent
-                    text: "➜"
+                    text: root.busy ? "…" : "➜"
                     color: parent.hasText ? Colorscheme.on_primary : Colorscheme.outline
                     font.pixelSize: 14
                     font.bold: true
@@ -176,6 +192,20 @@ FocusScope {
                 }
             }
         }
+    }
+
+    Text {
+        anchors.top: inputFrame.bottom
+        anchors.topMargin: 6
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: root.busy ? "正在验证…" : "密码错误，请重试"
+        color: root.busy ? Colorscheme.primary : Colorscheme.error
+        font.family: Sizes.fontFamily
+        font.pixelSize: 12
+        font.bold: true
+        visible: root.busy || root.failed
+        opacity: visible ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 160 } }
     }
 
     MouseArea {

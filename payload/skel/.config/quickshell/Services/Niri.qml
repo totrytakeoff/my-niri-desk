@@ -7,6 +7,13 @@ import QtQuick
 Singleton {
     property ListModel workspaces: ListModel {}
     property ListModel windows: ListModel {}
+    property string focusedOutput: ""
+    readonly property var focusedScreen: {
+        for (let i = 0; i < Quickshell.screens.length; i++) {
+            if (Quickshell.screens[i].name === focusedOutput) return Quickshell.screens[i];
+        }
+        return Quickshell.screens.length > 0 ? Quickshell.screens[0] : null;
+    }
     
     // 自定义信号：通知 UI 窗口池已更新
     signal windowsUpdated()
@@ -18,10 +25,12 @@ Singleton {
         workspaces.clear();
         for (let i = 0; i < workspaceList.length; i++) {
             const workspace = workspaceList[i];
+            if (workspace.is_focused && workspace.output) focusedOutput = workspace.output;
             workspaces.append({
                 wsId: String(workspace.id), 
                 idx: workspace.idx,
                 isActive: workspace.is_active,
+                isFocused: workspace.is_focused || false,
                 name: workspace.name || "", 
                 output: workspace.output || ""
             });
@@ -35,6 +44,22 @@ Singleton {
             const isNowActive = (item.wsId === activeId);
             if (item.isActive !== isNowActive) {
                 workspaces.setProperty(i, "isActive", isNowActive);
+            }
+            if (isNowActive && workspacesEvent.focused !== false && item.output) {
+                focusedOutput = item.output;
+            }
+        }
+    }
+
+    Process {
+        id: niriWorkspacesFetcher
+        running: true
+        command: ["niri", "msg", "-j", "workspaces"]
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    updateWorkspaces({ workspaces: JSON.parse(data.trim()) });
+                } catch (e) {}
             }
         }
     }

@@ -10,6 +10,7 @@ Item {
     id: root
     
     signal requestCloseLauncher()
+    property alias query: searchBox.text
 
     readonly property bool gridMode: WidgetState.launcherLayoutMode === "grid"
     ListModel { id: filteredWindows }

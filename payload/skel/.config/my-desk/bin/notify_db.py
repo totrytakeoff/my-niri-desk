@@ -32,10 +32,11 @@ def load():
 def save(json_str):
     """写入缓存（原子写入）"""
     try:
-        if not os.path.exists(CACHE_DIR):
-            os.makedirs(CACHE_DIR)
+        cache_parent = os.path.dirname(CACHE_FILE)
+        os.makedirs(cache_parent, exist_ok=True)
 
-        fd, temp_path = tempfile.mkstemp(dir=CACHE_DIR, prefix=".notif_tmp_")
+        # 临时文件必须和最终文件位于同一目录，保证 os.replace 原子且目标目录存在。
+        fd, temp_path = tempfile.mkstemp(dir=cache_parent, prefix=".notif_tmp_")
         with os.fdopen(fd, 'w') as f:
             f.write(json_str)
 

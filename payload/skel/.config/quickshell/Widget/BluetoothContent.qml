@@ -1,146 +1,463 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
-import qs.config
+import qs.Services as Services
 import qs.Widget.common
+import qs.config
 
 WidgetPanel {
     id: root
 
+    property bool isActive: WidgetState.qsOpen && WidgetState.qsView === "bluetooth"
+
+    function deviceIcon(iconName) {
+        const icon = (iconName || "").toLowerCase();
+        if (icon.includes("headset") || icon.includes("headphone") || icon.includes("audio"))
+            return "headphones";
+
+        if (icon.includes("keyboard"))
+            return "keyboard";
+
+        if (icon.includes("mouse"))
+            return "mouse";
+
+        if (icon.includes("phone") || icon.includes("smartphone"))
+            return "smartphone";
+
+        if (icon.includes("computer"))
+            return "computer";
+
+        return "bluetooth";
+    }
+
+    function deviceSubtitle(connected, paired, trusted) {
+        if (connected)
+            return "已连接";
+
+        if (paired && trusted)
+            return "已配对 · 已信任";
+
+        if (paired)
+            return "已配对";
+
+        return "可配对";
+    }
+
+    function performDeviceAction(mac, connected, paired) {
+        if (connected)
+            Services.Bluetooth.disconnectDevice(mac);
+        else if (paired)
+            Services.Bluetooth.connectDevice(mac);
+        else
+            Services.Bluetooth.pairDevice(mac);
+    }
+
     title: "蓝牙设备"
     icon: ""
-    closeAction: () => WidgetState.qsOpen = false
-    Theme { id: theme }
-
-    property bool isActive: WidgetState.qsOpen && WidgetState.qsView === "bluetooth"
-    property bool bluetoothEnabled: false
-    property int connectedCount: 0
-    property int pairedCount: 0
-    property bool scanRunning: false
-    property string busyMac: ""
-    property string busyAction: ""
-    property string statusText: ""
-    property bool statusError: false
-
+    closeAction: () => {
+        return WidgetState.qsOpen = false;
+    }
     onIsActiveChanged: {
-        if (isActive) {
-            refreshDevices();
-            refreshTimer.start();
-        } else {
-            refreshTimer.stop();
-        }
+        if (isActive)
+            Services.Bluetooth.refresh();
+
     }
 
-    function refreshDevices() {
-        scanDevices.running = true;
+    Theme {
+        id: theme
     }
 
-    function showStatus(message, isError) {
-        root.statusText = message;
-        root.statusError = !!isError;
-        statusTimer.restart();
-    }
+    RowLayout {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 32
+        spacing: 10
 
-    function recalcCounts() {
-        let connected = 0;
-        let paired = 0;
-        for (let i = 0; i < deviceModel.count; i++) {
-            const item = deviceModel.get(i);
-            if (item.connected)
-                connected++;
-            if (item.paired)
-                paired++;
-        }
-        root.connectedCount = connected;
-        root.pairedCount = paired;
-    }
+        Text {
+            Layout.fillWidth: true
+            text: {
+                if (Services.Bluetooth.powerBusy)
+                    return Services.Bluetooth.powered ? "正在关闭蓝牙…" : "正在开启蓝牙…";
 
-    function parseDeviceLine(line) {
-        const trimmed = line.trim();
-        if (trimmed === "")
-            return;
+                if (!Services.Bluetooth.powered)
+                    return "蓝牙已关闭";
 
-        if (trimmed.startsWith("__POWER__|")) {
-            root.bluetoothEnabled = trimmed.substring(10) === "yes";
-            return;
+                return "蓝牙已开启 · " + Services.Bluetooth.connectedCount + " 台已连接 · " + Services.Bluetooth.pairedCount + " 台已配对";
+            }
+            color: Services.Bluetooth.connectedCount > 0 ? theme.primary : theme.subtext
+            font.pixelSize: 12
+            elide: Text.ElideRight
         }
 
-        const parts = trimmed.split("|");
-        if (parts.length < 5)
-            return;
+        Rectangle {
+            id: scanButton
 
-        const mac = parts[0];
-        const connected = parts[1] === "yes";
-        const paired = parts[2] === "yes";
-        const trusted = parts[3] === "yes";
-        const name = parts.slice(4).join("|");
+            Layout.preferredWidth: scanContent.implicitWidth + 20
+            Layout.preferredHeight: 30
+            radius: 15
+            visible: Services.Bluetooth.powered
+            color: scanMouse.containsMouse || Services.Bluetooth.scanning ? theme.glass_card_hover : "transparent"
+            border.width: Services.Bluetooth.scanning ? 1 : 0
+            border.color: Qt.alpha(theme.primary, 0.35)
+            opacity: Services.Bluetooth.busyMac === "" && !Services.Bluetooth.powerBusy ? 1 : 0.5
 
-        if (!mac || !name)
-            return;
+            RowLayout {
+                id: scanContent
 
-        const item = {
-            mac: mac,
-            name: name,
-            connected: connected,
-            paired: paired,
-            trusted: trusted
-        };
+                anchors.centerIn: parent
+                spacing: 6
 
-        if (connected)
-            deviceModel.insert(0, item);
-        else
-            deviceModel.append(item);
+                Text {
+                    text: "sync"
+                    font.family: "Material Symbols Outlined"
+                    font.pixelSize: 16
+                    color: Services.Bluetooth.scanning ? theme.primary : theme.subtext
+
+                    RotationAnimation on rotation {
+                        running: Services.Bluetooth.scanning
+                        from: 0
+                        to: 360
+                        loops: Animation.Infinite
+                        duration: 900
+                    }
+
+                }
+
+                Text {
+                    text: Services.Bluetooth.scanning ? "扫描中" : "扫描附近设备"
+                    color: Services.Bluetooth.scanning ? theme.primary : theme.text
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+
+            }
+
+            MouseArea {
+                id: scanMouse
+
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                enabled: !Services.Bluetooth.scanning && !Services.Bluetooth.powerBusy && Services.Bluetooth.busyMac === ""
+                onClicked: Services.Bluetooth.scan()
+            }
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 150
+                }
+
+            }
+
+        }
+
+    }
+
+    Item {
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+
+        ListView {
+            id: deviceList
+
+            anchors.fill: parent
+            clip: true
+            spacing: 4
+            model: Services.Bluetooth.devices
+            visible: Services.Bluetooth.powered
+            section.property: "group"
+            section.criteria: ViewSection.FullString
+
+            section.delegate: Item {
+                required property string section
+
+                width: ListView.view.width
+                height: 34
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: parent.section
+                    color: theme.subtext
+                    font.pixelSize: 13
+                    font.bold: true
+                }
+
+            }
+
+            delegate: Rectangle {
+                id: deviceRow
+
+                required property string mac
+                required property string name
+                required property string iconName
+                required property string group
+                required property bool connected
+                required property bool paired
+                required property bool trusted
+                property bool busy: Services.Bluetooth.busyMac === mac
+                property bool highlighted: rowHover.hovered || busy
+
+                width: ListView.view.width
+                height: 70
+                radius: 12
+                color: highlighted ? theme.glass_card_subtle : "transparent"
+                border.width: 1
+                border.color: highlighted ? (busy ? theme.primary : Qt.alpha(theme.primary, 0.48)) : "transparent"
+
+                HoverHandler {
+                    id: rowHover
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 12
+
+                    Text {
+                        Layout.preferredWidth: 28
+                        Layout.alignment: Qt.AlignVCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        text: root.deviceIcon(deviceRow.iconName)
+                        font.family: "Material Symbols Outlined"
+                        font.pixelSize: 23
+                        color: deviceRow.connected ? theme.primary : theme.subtext
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 2
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: deviceRow.name
+                            color: deviceRow.connected ? theme.primary : theme.text
+                            font.pixelSize: 14
+                            font.bold: true
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.deviceSubtitle(deviceRow.connected, deviceRow.paired, deviceRow.trusted)
+                            color: deviceRow.connected ? theme.primary : theme.subtext
+                            font.pixelSize: 11
+                            elide: Text.ElideRight
+                        }
+
+                    }
+
+                    Rectangle {
+                        id: actionButton
+
+                        property bool shouldShow: rowHover.hovered || deviceRow.connected || deviceRow.busy
+
+                        Layout.preferredWidth: shouldShow ? 76 : 0
+                        Layout.preferredHeight: 30
+                        radius: 15
+                        visible: Layout.preferredWidth > 0
+                        opacity: shouldShow ? 1 : 0
+                        color: deviceRow.connected ? theme.primary : (deviceRow.busy ? Qt.alpha(theme.primary, 0.16) : theme.glass_card_hover)
+                        border.width: deviceRow.connected ? 0 : 1
+                        border.color: deviceRow.busy ? Qt.alpha(theme.primary, 0.4) : theme.glass_outline_soft
+
+                        RowLayout {
+                            anchors.centerIn: parent
+                            spacing: 5
+
+                            Text {
+                                visible: deviceRow.busy
+                                text: "sync"
+                                font.family: "Material Symbols Outlined"
+                                font.pixelSize: 14
+                                color: theme.primary
+
+                                RotationAnimation on rotation {
+                                    running: deviceRow.busy
+                                    from: 0
+                                    to: 360
+                                    loops: Animation.Infinite
+                                    duration: 800
+                                }
+
+                            }
+
+                            Text {
+                                text: deviceRow.busy ? Services.Bluetooth.busyAction : (deviceRow.connected ? "断开" : (deviceRow.paired ? "连接" : "配对"))
+                                color: deviceRow.connected ? theme.on_primary : (deviceRow.busy ? theme.primary : theme.text)
+                                font.pixelSize: 11
+                                font.bold: true
+                            }
+
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            enabled: Services.Bluetooth.busyMac === "" && !Services.Bluetooth.scanning && !Services.Bluetooth.powerBusy
+                            onClicked: root.performDeviceAction(deviceRow.mac, deviceRow.connected, deviceRow.paired)
+                        }
+
+                        Behavior on Layout.preferredWidth {
+                            NumberAnimation {
+                                duration: 150
+                                easing.type: Easing.OutCubic
+                            }
+
+                        }
+
+                    }
+
+                }
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 150
+                    }
+
+                }
+
+                Behavior on border.color {
+                    ColorAnimation {
+                        duration: 150
+                    }
+
+                }
+
+            }
+
+        }
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 8
+            visible: !Services.Bluetooth.powered
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "bluetooth_disabled"
+                font.family: "Material Symbols Outlined"
+                font.pixelSize: 32
+                color: theme.subtext
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "蓝牙已关闭"
+                color: theme.text
+                font.pixelSize: 14
+                font.bold: true
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "使用标题栏开关开启蓝牙"
+                color: theme.subtext
+                font.pixelSize: 11
+            }
+
+        }
+
+        Column {
+            anchors.centerIn: parent
+            spacing: 8
+            visible: Services.Bluetooth.powered && Services.Bluetooth.devices.count === 0
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Services.Bluetooth.scanning ? "radar" : "bluetooth_searching"
+                font.family: "Material Symbols Outlined"
+                font.pixelSize: 32
+                color: theme.subtext
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Services.Bluetooth.scanning ? "正在搜索附近设备…" : "暂无蓝牙设备"
+                color: theme.subtext
+                font.pixelSize: 13
+            }
+
+        }
+
+        Rectangle {
+            id: statusToast
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 8
+            width: Math.min(parent.width - 24, toastText.implicitWidth + 32)
+            height: 36
+            radius: 18
+            visible: Services.Bluetooth.statusText !== ""
+            color: Services.Bluetooth.statusError ? Qt.alpha(theme.error, 0.18) : Qt.alpha(theme.background, 0.88)
+            border.width: 1
+            border.color: Services.Bluetooth.statusError ? Qt.alpha(theme.error, 0.34) : theme.glass_outline_soft
+            z: 20
+
+            Text {
+                id: toastText
+
+                anchors.centerIn: parent
+                text: Services.Bluetooth.statusText
+                color: Services.Bluetooth.statusError ? theme.error : theme.text
+                font.pixelSize: 11
+                font.bold: true
+            }
+
+        }
+
     }
 
     headerTools: RowLayout {
-        Theme { id: headerTheme }
-        spacing: 12
+        spacing: 10
 
-        Text {
-            text: "sync"
-            font.family: "Material Symbols Outlined"
-            font.pixelSize: 20
-            color: headerTheme.subtext
-            opacity: scanDevices.running ? 0.5 : 1
+        Rectangle {
+            Layout.preferredWidth: 30
+            Layout.preferredHeight: 30
+            radius: 15
+            color: settingsMouse.containsMouse ? theme.glass_card_hover : "transparent"
+
+            Text {
+                anchors.centerIn: parent
+                text: "settings"
+                font.family: "Material Symbols Outlined"
+                font.pixelSize: 19
+                color: theme.subtext
+            }
 
             MouseArea {
+                id: settingsMouse
+
                 anchors.fill: parent
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.refreshDevices()
+                onClicked: Quickshell.execDetached(["desk-app-run", "--", "gnome-control-center", "bluetooth"])
             }
 
-            RotationAnimation on rotation {
-                running: scanDevices.running
-                from: 0
-                to: 360
-                loops: Animation.Infinite
-                duration: 1000
-            }
         }
 
         Rectangle {
             id: mainSwitch
-            width: 44
-            height: 24
+
+            Layout.preferredWidth: 44
+            Layout.preferredHeight: 24
             radius: 12
-            color: root.bluetoothEnabled ? headerTheme.primary : "transparent"
-            border.width: root.bluetoothEnabled ? 0 : 2
-            border.color: headerTheme.outline
-            Behavior on color { ColorAnimation { duration: 250 } }
+            enabled: !Services.Bluetooth.powerBusy && !Services.Bluetooth.scanning && Services.Bluetooth.busyMac === ""
+            opacity: enabled ? 1 : 0.58
+            color: Services.Bluetooth.powered ? theme.primary : "transparent"
+            border.width: Services.Bluetooth.powered ? 0 : 2
+            border.color: theme.outline
 
             Rectangle {
-                width: root.bluetoothEnabled ? 16 : 12
-                height: root.bluetoothEnabled ? 16 : 12
+                visible: !Services.Bluetooth.powerBusy
+                width: Services.Bluetooth.powered ? 16 : 12
+                height: width
                 radius: width / 2
-                x: root.bluetoothEnabled ? parent.width - width - 4 : 6
+                x: Services.Bluetooth.powered ? parent.width - width - 4 : 6
                 anchors.verticalCenter: parent.verticalCenter
-                color: root.bluetoothEnabled ? Colorscheme.on_primary : headerTheme.outline
-
-                Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-                Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-                Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
-                Behavior on color { ColorAnimation { duration: 250 } }
+                color: Services.Bluetooth.powered ? Colorscheme.on_primary : theme.outline
 
                 Text {
                     anchors.centerIn: parent
@@ -148,450 +465,61 @@ WidgetPanel {
                     font.family: "Material Symbols Outlined"
                     font.pixelSize: 12
                     font.bold: true
-                    color: headerTheme.primary
-                    opacity: root.bluetoothEnabled ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 200 } }
+                    color: theme.primary
+                    opacity: Services.Bluetooth.powered ? 1 : 0
                 }
+
+                Behavior on x {
+                    NumberAnimation {
+                        duration: 260
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+
+                Behavior on width {
+                    NumberAnimation {
+                        duration: 260
+                    }
+
+                }
+
             }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    toggleBluetoothProc.enable = !root.bluetoothEnabled;
-                    toggleBluetoothProc.running = true;
-                }
-            }
-        }
-    }
-
-    Text {
-        text: root.bluetoothEnabled ? "已配对设备" : "蓝牙已关闭"
-        color: theme.subtext
-        font.pixelSize: 14
-        font.bold: true
-        Layout.topMargin: 12
-    }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 88
-        radius: 16
-        color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.42)
-        border.width: 1
-        border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.42)
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: 16
-            spacing: 14
-
-            Rectangle {
-                Layout.preferredWidth: 40
-                Layout.preferredHeight: 40
-                radius: 20
-                color: root.bluetoothEnabled ? theme.primary_container : Colorscheme.surface_container_highest
-
-                Text {
-                    anchors.centerIn: parent
-                    text: ""
-                    font.family: "Font Awesome 7 Free Solid"
-                    font.pixelSize: 15
-                    color: root.bluetoothEnabled ? theme.on_primary_container : theme.on_surface
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 4
-
-                Text {
-                    text: root.bluetoothEnabled ? "蓝牙已开启" : "蓝牙已关闭"
-                    font.bold: true
-                    font.pixelSize: 14
-                    color: theme.text
-                }
-
-                Text {
-                    text: root.bluetoothEnabled
-                        ? ("已连接 " + root.connectedCount + " 台 · 已配对 " + root.pairedCount + " 台")
-                        : "打开后可快速连接已配对设备"
-                    font.pixelSize: 12
-                    color: root.bluetoothEnabled ? theme.primary : theme.subtext
-                }
-
-                Text {
-                    text: root.scanRunning ? "正在扫描附近设备…" : "可扫描新设备并直接配对连接"
-                    font.pixelSize: 11
-                    color: theme.subtext
-                }
-            }
-        }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 10
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 36
-            radius: 18
-            color: root.scanRunning
-                ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.18)
-                : Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.9)
-            border.width: 1
-            border.color: root.scanRunning ? Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.28) : Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.35)
 
             Text {
                 anchors.centerIn: parent
-                text: root.scanRunning ? "扫描中…" : "扫描附近设备"
-                font.bold: true
-                font.pixelSize: 12
-                color: root.scanRunning ? theme.primary : theme.text
+                visible: Services.Bluetooth.powerBusy
+                text: "sync"
+                font.family: "Material Symbols Outlined"
+                font.pixelSize: 14
+                color: Services.Bluetooth.powered ? theme.on_primary : theme.subtext
+
+                RotationAnimation on rotation {
+                    running: Services.Bluetooth.powerBusy
+                    from: 0
+                    to: 360
+                    loops: Animation.Infinite
+                    duration: 800
+                }
+
             }
 
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                enabled: root.bluetoothEnabled && !root.scanRunning
-                onClicked: {
-                    discoverProc.running = true;
-                }
-            }
-        }
-    }
-
-    Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: root.statusText !== "" ? 34 : 0
-        radius: 17
-        visible: root.statusText !== ""
-        color: root.statusError
-            ? Qt.rgba(theme.error.r, theme.error.g, theme.error.b, 0.16)
-            : Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.14)
-        border.width: 1
-        border.color: root.statusError
-            ? Qt.rgba(theme.error.r, theme.error.g, theme.error.b, 0.24)
-            : Qt.rgba(theme.primary.r, theme.primary.g, theme.primary.b, 0.22)
-
-        Text {
-            anchors.centerIn: parent
-            text: root.statusText
-            font.pixelSize: 12
-            font.bold: true
-            color: root.statusError ? theme.error : theme.text
-        }
-    }
-
-    ListView {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        clip: true
-        spacing: 10
-        model: deviceModel
-
-        delegate: Rectangle {
-            Theme { id: itemTheme }
-            required property string mac
-            required property string name
-            required property bool connected
-            required property bool paired
-            required property bool trusted
-
-            width: ListView.view.width
-            height: 92
-            radius: 12
-            color: Qt.rgba(itemTheme.surface.r, itemTheme.surface.g, itemTheme.surface.b, 0.35)
-            border.width: 1
-            border.color: btMouse.containsMouse ? itemTheme.primary : itemTheme.outline
-            opacity: root.bluetoothEnabled ? 1 : 0.55
-            Behavior on border.color { ColorAnimation { duration: 150 } }
-
-            MouseArea {
-                id: btMouse
-                anchors.fill: parent
-                hoverEnabled: true
+                enabled: mainSwitch.enabled
+                onClicked: Services.Bluetooth.togglePower()
             }
 
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 14
-                spacing: 14
-
-                Rectangle {
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 36
-                    radius: 18
-                    color: connected ? itemTheme.primary_container : itemTheme.surface_container_highest
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: ""
-                        font.family: "Font Awesome 7 Free Solid"
-                        font.pixelSize: 14
-                        color: connected ? itemTheme.on_primary_container : itemTheme.on_surface
-                    }
+            Behavior on color {
+                ColorAnimation {
+                    duration: 220
                 }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 3
-
-                    Text {
-                        text: name
-                        font.bold: true
-                        font.pixelSize: 14
-                        color: itemTheme.text
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
-                    }
-
-                    Text {
-                        text: connected
-                            ? "已连接"
-                            : (paired ? (trusted ? "已配对 · 已信任" : "已配对") : "未连接")
-                        font.pixelSize: 12
-                        color: connected ? itemTheme.primary : itemTheme.subtext
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        text: mac
-                        font.family: "JetBrains Mono Nerd Font"
-                        font.pixelSize: 10
-                        color: itemTheme.subtext
-                        visible: btMouse.containsMouse
-                        Layout.fillWidth: true
-                        elide: Text.ElideMiddle
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-                        visible: paired || trusted || btMouse.containsMouse
-
-                        Item { visible: !paired && !trusted; width: 0; height: 0 }
-
-                        Rectangle {
-                            visible: paired
-                            radius: 9
-                            color: Qt.rgba(itemTheme.primary.r, itemTheme.primary.g, itemTheme.primary.b, 0.14)
-                            implicitWidth: 42
-                            implicitHeight: 18
-                            Text { anchors.centerIn: parent; text: "配对"; font.pixelSize: 10; color: itemTheme.primary; font.bold: true }
-                        }
-
-                        Rectangle {
-                            visible: trusted
-                            radius: 9
-                            color: Qt.rgba(itemTheme.secondary.r, itemTheme.secondary.g, itemTheme.secondary.b, 0.16)
-                            implicitWidth: 42
-                            implicitHeight: 18
-                            Text { anchors.centerIn: parent; text: "信任"; font.pixelSize: 10; color: itemTheme.secondary; font.bold: true }
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Text {
-                            visible: btMouse.containsMouse && !paired
-                            text: "新设备"
-                            font.pixelSize: 10
-                            color: itemTheme.subtext
-                        }
-                    }
-                }
-
-                Rectangle {
-                    Layout.preferredWidth: 96
-                    Layout.preferredHeight: 32
-                    radius: 16
-                    color: connected
-                        ? itemTheme.primary
-                        : (paired ? itemTheme.surface_container_highest : Qt.rgba(itemTheme.primary.r, itemTheme.primary.g, itemTheme.primary.b, 0.14))
-                    border.width: connected ? 0 : 1
-                    border.color: paired ? itemTheme.outline : Qt.rgba(itemTheme.primary.r, itemTheme.primary.g, itemTheme.primary.b, 0.24)
-                    visible: root.bluetoothEnabled
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: root.busyMac === mac
-                            ? root.busyAction
-                            : (connected ? "断开" : (paired ? "连接" : "配对"))
-                        font.bold: true
-                        font.pixelSize: 12
-                        color: connected ? itemTheme.on_primary : (paired ? itemTheme.on_surface : itemTheme.primary)
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        enabled: root.busyMac === "" || root.busyMac === mac
-                        onClicked: {
-                            if (connected) {
-                                root.busyMac = mac;
-                                root.busyAction = "断开中";
-                                disconnectProc.targetMac = mac;
-                                disconnectProc.running = true;
-                            } else if (paired) {
-                                root.busyMac = mac;
-                                root.busyAction = "连接中";
-                                connectProc.targetMac = mac;
-                                connectProc.running = true;
-                            } else {
-                                root.busyMac = mac;
-                                root.busyAction = "配对中";
-                                pairProc.targetMac = mac;
-                                pairProc.running = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Text {
-            anchors.centerIn: parent
-            visible: deviceModel.count === 0
-            text: root.bluetoothEnabled ? (root.scanRunning ? "正在搜索设备…" : "未发现设备，试试先扫描附近设备") : "开启蓝牙后可查看设备"
-            color: theme.subtext
-            font.pixelSize: 14
-        }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 10
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 36
-            radius: 18
-            color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.9)
-
-            Text {
-                anchors.centerIn: parent
-                text: "打开系统蓝牙设置"
-                font.bold: true
-                font.pixelSize: 12
-                color: theme.text
             }
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: Quickshell.execDetached(["desk-app-run", "--", "gnome-control-center", "bluetooth"])
-            }
         }
+
     }
 
-    ListModel {
-        id: deviceModel
-    }
-
-    Timer {
-        id: refreshTimer
-        interval: 8000
-        repeat: true
-        running: false
-        onTriggered: root.refreshDevices()
-    }
-
-    Timer {
-        id: statusTimer
-        interval: 2600
-        repeat: false
-        onTriggered: root.statusText = ""
-    }
-
-    Process {
-        id: scanDevices
-        command: ["bash", "-lc", `
-            BT_PWR=no
-            bluetoothctl show 2>/dev/null | grep -q 'Powered: yes' && BT_PWR=yes
-            echo "__POWER__|$BT_PWR"
-            bluetoothctl devices 2>/dev/null | while read -r _ mac name; do
-                [ -z "$mac" ] && continue
-                info=$(bluetoothctl info "$mac" 2>/dev/null)
-                connected=no
-                paired=no
-                trusted=no
-                echo "$info" | grep -q 'Connected: yes' && connected=yes
-                echo "$info" | grep -q 'Paired: yes' && paired=yes
-                echo "$info" | grep -q 'Trusted: yes' && trusted=yes
-                printf '%s|%s|%s|%s|%s\n' "$mac" "$connected" "$paired" "$trusted" "$name"
-            done
-        `]
-        onStarted: {
-            deviceModel.clear();
-            root.connectedCount = 0;
-            root.pairedCount = 0;
-        }
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: (data) => root.parseDeviceLine(data)
-        }
-        onExited: root.recalcCounts()
-    }
-
-    Process {
-        id: discoverProc
-        command: ["bash", "-lc", "bluetoothctl --timeout 8 scan on >/dev/null 2>&1 || true; bluetoothctl scan off >/dev/null 2>&1 || true"]
-        onStarted: {
-            root.scanRunning = true;
-            root.showStatus("正在扫描附近蓝牙设备", false);
-        }
-        onExited: {
-            root.scanRunning = false;
-            root.showStatus(deviceModel.count > 0 ? "扫描完成" : "扫描完成，未发现新设备", false);
-            root.refreshDevices();
-        }
-    }
-
-    Process {
-        id: toggleBluetoothProc
-        property bool enable: true
-        command: ["bluetoothctl", "power", enable ? "on" : "off"]
-        onExited: {
-            root.showStatus(enable ? "蓝牙已开启" : "蓝牙已关闭", code !== 0);
-            root.refreshDevices();
-        }
-    }
-
-    Process {
-        id: connectProc
-        property string targetMac: ""
-        command: ["bluetoothctl", "connect", targetMac]
-        onExited: {
-            root.busyMac = "";
-            root.busyAction = "";
-            root.showStatus(code === 0 ? "设备已连接" : "连接失败", code !== 0);
-            root.refreshDevices();
-        }
-    }
-
-    Process {
-        id: disconnectProc
-        property string targetMac: ""
-        command: ["bluetoothctl", "disconnect", targetMac]
-        onExited: {
-            root.busyMac = "";
-            root.busyAction = "";
-            root.showStatus(code === 0 ? "设备已断开" : "断开失败", code !== 0);
-            root.refreshDevices();
-        }
-    }
-
-    Process {
-        id: pairProc
-        property string targetMac: ""
-        command: ["bash", "-lc", "bluetoothctl pair \"" + targetMac + "\" >/dev/null 2>&1 && bluetoothctl trust \"" + targetMac + "\" >/dev/null 2>&1 && bluetoothctl connect \"" + targetMac + "\" >/dev/null 2>&1"]
-        onExited: {
-            root.busyMac = "";
-            root.busyAction = "";
-            root.showStatus(code === 0 ? "配对并连接成功" : "配对或连接失败", code !== 0);
-            root.refreshDevices();
-        }
-    }
 }

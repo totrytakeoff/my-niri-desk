@@ -1,6 +1,6 @@
 pkgname=my-niri-desk
-pkgver=0.2.0
-pkgrel=2
+pkgver=0.3.0
+pkgrel=1
 pkgdesc="Opinionated niri + QuickShell desktop preset"
 arch=('x86_64')
 url="https://github.com/totrytakeoff/my-niri-desk"
@@ -20,6 +20,7 @@ depends=(
   'networkmanager'
   'bluez'
   'bluez-utils'
+  'brightnessctl'
   'wl-clipboard'
   'cliphist'
   'grim'

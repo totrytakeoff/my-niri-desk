@@ -9,7 +9,7 @@ Item {
     id: root
 
     // 将根节点改为 Item，脱离背景色的绑定限制
-    implicitHeight: 36 
+    implicitHeight: Sizes.barPillHeight
     implicitWidth: layout.width + 24
 
     // 1. 定义原背景（设为不可见，仅作为 MultiEffect 的渲染源）

@@ -9,7 +9,7 @@ import qs.Widget.common
 Item {
     id: root
 
-    implicitHeight: 36
+    implicitHeight: Sizes.barPillHeight
     implicitWidth: layout.width + 24
 
     Behavior on implicitWidth {
@@ -98,7 +98,7 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                onClicked: {
+                onClicked: (mouse) => {
                     if (mouse.button === Qt.RightButton) {
                         const views = ["dashboard", "processes", "session"];
                         const currentIndex = views.indexOf(WidgetState.leftSidebarView);

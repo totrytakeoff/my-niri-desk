@@ -7,7 +7,7 @@ Item {
     id: root
     
     // 维持 36 的高度
-    implicitHeight: 36
+    implicitHeight: Sizes.barPillHeight
     implicitWidth: layout.width + 16
 
     Rectangle {

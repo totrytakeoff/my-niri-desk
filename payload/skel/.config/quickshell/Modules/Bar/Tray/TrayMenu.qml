@@ -1,24 +1,69 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects // 引入现代 Qt 6 特效库
 import QtQuick.Layouts
-import QtQuick.Effects  // 引入现代 Qt 6 特效库
 import Quickshell
-import qs.config 
+import Quickshell.Wayland
+import qs.config
 
 PopupWindow {
     id: root
 
     property var rootMenuHandle: null
     property string trayName: ""
-    
+    property var currentSubMenuHandle: {
+        if (menuStack.count === 0)
+            return null;
+
+        return menuStack.get(menuStack.count - 1).handle;
+    }
+
+    // --- 4. 导航逻辑 ---
+    function navigateToSubmenu(menuHandle, menuText) {
+        if (!menuHandle)
+            return ;
+
+        menuStack.append({
+            "handle": menuHandle,
+            "title": menuText
+        });
+        try {
+            // 1. 标准 API 调用
+            if (typeof menuHandle.aboutToShow === "function")
+                menuHandle.aboutToShow();
+
+            if (typeof menuHandle.updateLayout === "function")
+                menuHandle.updateLayout();
+
+            // 2. 暴力激活 (瞬时开关)
+            hydrator.menu = menuHandle;
+            hydrator.open();
+            // 【Bug 修复核心】：引入 Qt.callLater 延迟关闭
+            // 确保 DBus 有足够的时间将子菜单数据发送过来，防止 NetworkManager 等组件卡在 Loading...
+            Qt.callLater(() => {
+                // 安全检查：确保关闭的是同一个菜单的 Hydrator
+                if (hydrator.menu === menuHandle)
+                    hydrator.close();
+
+            });
+        } catch (e) {
+            console.warn("Hydrator error:", e);
+        }
+    }
+
+    function navigateBack() {
+        if (menuStack.count > 0)
+            menuStack.remove(menuStack.count - 1, 1);
+
+    }
+
     implicitWidth: 240
     implicitHeight: Math.min(600, mainLayout.implicitHeight + 20)
     color: "transparent"
-    
     onVisibleChanged: {
-        if (visible) {
-            menuStack.clear()
-        }
+        if (visible)
+            menuStack.clear();
+
     }
 
     // --- 1. 状态堆栈 ---
@@ -26,25 +71,23 @@ PopupWindow {
         id: menuStack
     }
 
-    property var currentSubMenuHandle: {
-        if (menuStack.count === 0) return null
-        return menuStack.get(menuStack.count - 1).handle
-    }
-
     // --- 2. 双通道数据源 ---
     QsMenuOpener {
         id: rootOpener
+
         menu: root.rootMenuHandle
     }
 
     QsMenuOpener {
         id: subOpener
+
         menu: root.currentSubMenuHandle
     }
 
     // --- 3. 隐形数据激活器 (Hydrator) ---
     QsMenuAnchor {
         id: hydrator
+
         anchor.window: root
         anchor.item: mainLayout
         // 设为当前窗口中心，防止 Wayland 强制推到屏幕左上角
@@ -55,54 +98,19 @@ PopupWindow {
         anchor.rect.height: 1
     }
 
-    // --- 4. 导航逻辑 ---
-    function navigateToSubmenu(menuHandle, menuText) {
-        if (!menuHandle) return
-
-        menuStack.append({ "handle": menuHandle, "title": menuText })
-
-        try {
-            // 1. 标准 API 调用
-            if (typeof menuHandle.aboutToShow === "function") menuHandle.aboutToShow()
-            if (typeof menuHandle.updateLayout === "function") menuHandle.updateLayout()
-            
-            // 2. 暴力激活 (瞬时开关)
-            hydrator.menu = menuHandle
-            hydrator.open()
-            
-            // 【Bug 修复核心】：引入 Qt.callLater 延迟关闭
-            // 确保 DBus 有足够的时间将子菜单数据发送过来，防止 NetworkManager 等组件卡在 Loading...
-            Qt.callLater(() => {
-                // 安全检查：确保关闭的是同一个菜单的 Hydrator
-                if (hydrator.menu === menuHandle) {
-                    hydrator.close()
-                }
-            })
-            
-        } catch (e) {
-            console.warn("Hydrator error:", e)
-        }
-    }
-
-    function navigateBack() {
-        if (menuStack.count > 0) {
-            menuStack.remove(menuStack.count - 1, 1)
-        }
-    }
-
     // --- 界面渲染 ---
     Rectangle {
         anchors.fill: parent
-        // [背景] 深色容器背景
-        color: Colorscheme.surface_container
-        radius: 12
+        // 轻透的中性色基底交给合成器模糊其背后内容，正文自身仍保持完全不透明。
+        color: Colorscheme.glass_popup
+        radius: 16
         border.width: 1
-        // [边框] 使用 Outline 颜色
-        border.color: Colorscheme.outline_variant
-        clip: true 
+        border.color: Colorscheme.glass_outline_soft
+        clip: true
 
         ColumnLayout {
             id: mainLayout
+
             width: parent.width
             spacing: 0
 
@@ -111,7 +119,7 @@ PopupWindow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 40
                 color: "transparent"
-                
+
                 // 标题文本
                 Text {
                     text: (menuStack.count === 0) ? (root.trayName || "Menu") : menuStack.get(menuStack.count - 1).title
@@ -136,7 +144,7 @@ PopupWindow {
                     color: backMa.containsMouse ? Colorscheme.secondary_container : "transparent"
 
                     Text {
-                        text: "⬅" 
+                        text: "⬅"
                         anchors.centerIn: parent
                         color: Colorscheme.on_secondary_container
                         font.bold: true
@@ -144,13 +152,15 @@ PopupWindow {
 
                     MouseArea {
                         id: backMa
+
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.navigateBack()
                     }
+
                 }
-                
+
                 // 分割线
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -159,17 +169,16 @@ PopupWindow {
                     color: Colorscheme.primary
                     opacity: 0.2
                 }
+
             }
 
             // --- 列表内容 ---
             ColumnLayout {
+                property var currentModel: (menuStack.count === 0) ? (rootOpener.children ? rootOpener.children.values : []) : (subOpener.children ? subOpener.children.values : [])
+
                 Layout.fillWidth: true
-                Layout.margins: 6 
-                spacing: 4        
-                
-                property var currentModel: (menuStack.count === 0) ?
-                                         (rootOpener.children ? rootOpener.children.values : []) : 
-                                         (subOpener.children ? subOpener.children.values : [])
+                Layout.margins: 6
+                spacing: 4
 
                 Text {
                     visible: (!parent.currentModel || parent.currentModel.length === 0)
@@ -185,17 +194,16 @@ PopupWindow {
 
                     delegate: Rectangle {
                         id: menuItem
+
                         property bool isSeparator: (modelData.isSeparator === true || modelData.text === "")
                         property bool hasSubMenu: (modelData.hasChildren === true)
                         property var effectiveHandle: (modelData.menu) ? modelData.menu : modelData
 
                         Layout.fillWidth: true
-                        Layout.preferredHeight: isSeparator ? 9 : 36 
+                        Layout.preferredHeight: isSeparator ? 9 : 36
                         radius: 8
-                        
                         // [交互] 悬停背景
                         color: (itemMa.containsMouse && !isSeparator) ? Colorscheme.secondary_container : "transparent"
-                        Behavior on color { ColorAnimation { duration: 100 } }
 
                         // 分割线
                         Rectangle {
@@ -220,24 +228,25 @@ PopupWindow {
                                 Layout.preferredWidth: 16
                                 Layout.preferredHeight: 16
                                 visible: (modelData.icon || "") !== ""
-                                
+
                                 Image {
                                     id: iconRaw
+
                                     anchors.fill: parent
                                     source: modelData.icon || ""
-                                    visible: false 
+                                    visible: false
                                     fillMode: Image.PreserveAspectFit
                                 }
-                                
+
                                 // [优化] 使用 MultiEffect 替换老旧的 ColorOverlay
                                 MultiEffect {
                                     source: iconRaw
                                     anchors.fill: iconRaw
                                     visible: iconRaw.status === Image.Ready
-                                    colorization: 1.0 
-                                    colorizationColor: itemMa.containsMouse ?
-                                        Colorscheme.on_secondary_container : Colorscheme.secondary
+                                    colorization: 1
+                                    colorizationColor: itemMa.containsMouse ? Colorscheme.on_secondary_container : Colorscheme.secondary
                                 }
+
                             }
 
                             // 2. 勾选状态
@@ -254,8 +263,12 @@ PopupWindow {
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
                                 color: {
-                                    if (modelData.enabled === false) return Colorscheme.outline;
-                                    if (itemMa.containsMouse) return Colorscheme.on_secondary_container;
+                                    if (modelData.enabled === false)
+                                        return Colorscheme.outline;
+
+                                    if (itemMa.containsMouse)
+                                        return Colorscheme.on_secondary_container;
+
                                     return Colorscheme.on_surface;
                                 }
                                 font.pixelSize: 14
@@ -270,28 +283,47 @@ PopupWindow {
                                 font.bold: true
                                 color: itemMa.containsMouse ? Colorscheme.on_secondary_container : Colorscheme.tertiary
                             }
+
                         }
 
                         MouseArea {
                             id: itemMa
+
                             visible: !parent.isSeparator
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             enabled: modelData.enabled !== false
-
                             onClicked: {
                                 if (hasSubMenu) {
-                                    root.navigateToSubmenu(effectiveHandle, modelData.text)
+                                    root.navigateToSubmenu(effectiveHandle, modelData.text);
                                 } else {
-                                    modelData.triggered()
-                                    root.visible = false
+                                    modelData.triggered();
+                                    root.visible = false;
                                 }
                             }
                         }
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 100
+                            }
+
+                        }
+
                     }
+
                 }
+
             }
+
         }
+
     }
+
+    BackgroundEffect.blurRegion: Region {
+        item: root.contentItem
+        radius: 16
+    }
+
 }

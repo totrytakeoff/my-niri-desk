@@ -1,23 +1,20 @@
-pragma Singleton
 import QtQuick
 import Quickshell
-import Quickshell.Io
+pragma Singleton
 
 QtObject {
-    id: root 
-
     // 全局 UI 状态中心
     // -----------------------------------------------------------------------
     // 这份文件非常关键。它不负责画界面，而是负责保存“当前桌面各层 UI 处于什么状态”。
-    //
     // 可以把它理解成轻量全局 store：
     // - 右侧快捷设置现在开没开
     // - 左侧 sidebar 当前在哪一页
     // - 通知中心是否 pinned
     // - 当前通知视图是 main/detail/all
     // - 热角是否启用
-    //
-    // 另外它还顺手承担了通知数据持久化和内存状态管理。
+    // 通知正文由 NotificationStore 统一持久化；这里仅维护分类索引和 UI 状态。
+
+    id: root
 
     property bool qsOpen: false
     // 右侧快捷设置当前视图。
@@ -26,7 +23,11 @@ QtObject {
     // - bluetooth: 蓝牙电源、设备列表、连接/断开
     // - audio: 输出/输入与应用音量
     property string qsView: "network"
-
+    // 会话锁的真实状态由 WlSessionLock.secure 回写。
+    // lockPending 只表示已经提出请求，不能当作会话已经安全锁定。
+    property bool sessionLocked: false
+    property bool lockPending: false
+    property string lockReason: "manual"
     // 左侧边栏状态
     property bool leftSidebarOpen: false
     // companion sidebar 的三页职责：
@@ -34,203 +35,165 @@ QtObject {
     // - processes: 轻量进程管理
     // - session: 当前会话/设备状态
     property string leftSidebarView: "dashboard"
-
     // Launcher 键盘循环导航总开关。
     // 打开后：
     // - 应用 / 窗口 / 壁纸列表支持首尾循环选择
     // - Tab / Shift+Tab 支持在 3 个 launcher 页面间循环切换
     // 关闭后则回退为普通边界行为：到顶/到底停止，Tab 只做正向切换。
     property bool launcherCyclicNavigation: true
-
     // Launcher 应用排序模式: "alphabetical" | "frequent"
     property string launcherSortMode: "alphabetical"
     // Launcher 页面布局模式: "list" | "grid"
     property string launcherLayoutMode: "list"
-
     // 通知中心窗口是否打开。
     property bool notifOpen: false
-    property bool notifIsHovered: false 
+    property bool notifIsHovered: false
     // 是否被用户固定，不随失焦关闭。
-    property bool notifPinned: false 
+    property bool notifPinned: false
     // 通知内部的 3 种视图状态：
     // - main: 按应用分组的主视图
     // - detail: 某一个应用的详情
     // - all: 所有通知长列表
-    property string notifCurrentView: "main" 
+    property string notifCurrentView: "main"
     property string notifDetailAppId: ""
-    property string notifDisplayMode: "compact" 
-
-    // 设置每个 App 最多保留的历史消息数量
+    property string notifDisplayMode: "compact"
+    // 设置每个 App 在通知中心最多展示的历史消息数量。
     property int maxMessagesPerApp: 50
-
     // 右下角通知热角是否启用。
     property bool hotCornerEnabled: true
-    function openNotifPanelFromHotCorner() {
-        if (hotCornerEnabled && !notifOpen) {
-            notifOpen = true;
-        }
-    }
-
     // 每个应用当前剩余多少条通知。
     property var notifAppCounts: {
-        "system": 0, "qq": 0, "wechat": 0, "telegram": 0, "discord": 0
+        "system": 0,
+        "qq": 0,
+        "wechat": 0,
+        "telegram": 0,
+        "discord": 0
     }
-
     // 每个应用的通知列表。
     property var notifMessages: {
-        "system": [], "qq": [], "wechat": [], "telegram": [], "discord": []
+        "system": [],
+        "qq": [],
+        "wechat": [],
+        "telegram": [],
+        "discord": []
+    }
+    property var notificationStoreConnections
+
+    // 统一打开右侧快捷设置，并通知灵动岛释放自身交互层。
+    signal closeIslandRequested()
+    signal lockRequested()
+    signal notifDataChanged()
+
+    function requestLock(reason) {
+        lockReason = reason || "manual";
+        if (sessionLocked || lockPending)
+            return ;
+
+        lockPending = true;
+        lockRequested();
     }
 
-    signal notifDataChanged();
+    function confirmLockSecure() {
+        sessionLocked = true;
+        lockPending = false;
+    }
 
-    // 通知持久化：所有通知最终都落到 notify_db.py 管理。
-    readonly property string dbCmd: "notify-db"
+    function cancelLockRequest() {
+        if (sessionLocked)
+            return ;
 
-    property var loadProcess: Process {
-        command: ["desk-run", root.dbCmd, "load"]
-        stdout: SplitParser {
-            onRead: (data) => {
-                try {
-                    var output = data.trim();
-                    if (!output || output === "[]" || output === "{}") return;
+        lockPending = false;
+        lockReason = "manual";
+    }
 
-                    var loaded = JSON.parse(output);
-                    var mockMsgs = { "system": [], "qq": [], "wechat": [], "telegram": [], "discord": [] };
-                    var mockCounts = { "system": 0, "qq": 0, "wechat": 0, "telegram": 0, "discord": 0 };
+    function confirmUnlocked() {
+        sessionLocked = false;
+        lockPending = false;
+        lockReason = "manual";
+    }
 
-                    if (Array.isArray(loaded)) {
-                        for (var i = 0; i < loaded.length; i++) {
-                            var item = loaded[i];
-                            var aId = "system";
+    function openQuickSettings(viewId) {
+        qsView = viewId;
+        qsOpen = true;
+        closeIslandRequested();
+    }
 
-                            var nameStr = (item.appName || "").toLowerCase() + " " + (item.desktopEntry || "").toLowerCase() + " " + (item.summary || "").toLowerCase();
-                            if (nameStr.indexOf("qq") !== -1) aId = "qq";
-                            else if (nameStr.indexOf("wechat") !== -1 || nameStr.indexOf("微信") !== -1) aId = "wechat";
-                            else if (nameStr.indexOf("telegram") !== -1) aId = "telegram";
-                            else if (nameStr.indexOf("discord") !== -1) aId = "discord";
-
-                            var ts = item.timestamp || item.time;
-                            if (typeof ts === "string" || isNaN(ts)) {
-                                ts = Date.now() - i * 1000; 
-                            }
-
-                            var notifObj = {
-                                id: item.id !== undefined ? item.id : Date.now() + i,
-                                title: item.summary || item.appName || "新通知",
-                                body: item.body || "",
-                                timestamp: ts,
-                                appId: aId,
-                                _raw: item 
-                            };
-                            
-                            mockMsgs[aId].push(notifObj);
-                            mockCounts[aId]++;
-                        }
-                    }
-
-                    root.notifMessages = mockMsgs;
-                    root.notifAppCounts = mockCounts;
-                    root.notifDataChanged();
-                    console.log("本地通知加载成功！数量: " + loaded.length);
-                } catch(e) {
-                    console.log("解析通知失败: " + e);
-                }
-            }
+    function toggleQuickSettings(viewId) {
+        if (qsOpen && qsView === viewId) {
+            qsOpen = false;
+            return ;
         }
+        openQuickSettings(viewId);
     }
 
-    property var saveProcess: Process {
-        command: ["desk-run", root.dbCmd, "save", "[]"]
+    function openNotifPanelFromHotCorner() {
+        if (hotCornerEnabled && !notifOpen)
+            notifOpen = true;
+
     }
 
-    property var saveTimer: Timer {
-        interval: 1000
-        repeat: false
-        onTriggered: {
-            var all = root.getAllMessages(); 
-            var allToSave = [];
-            
-            for (var i = 0; i < all.length; i++) {
-                var m = all[i];
-                if (m._raw) {
-                    allToSave.push(m._raw);
-                } else {
-                    var appName = "System";
-                    if (m.appId === "qq") appName = "QQ";
-                    if (m.appId === "wechat") appName = "WeChat";
-                    if (m.appId === "telegram") appName = "Telegram";
-                    if (m.appId === "discord") appName = "Discord";
-                    
-                    allToSave.push({
-                        id: m.id,
-                        appName: appName,
-                        summary: m.title,
-                        body: m.body,
-                        timestamp: m.timestamp,
-                        time: m.timestamp,
-                        imagePath: "",
-                        desktopEntry: ""
-                    });
-                }
-            }
-            
-            var jsonStr = JSON.stringify(allToSave);
-            root.saveProcess.command = ["desk-run", root.dbCmd, "save", jsonStr];
-            root.saveProcess.running = true;
+    function appIdForRecord(item) {
+        var name = ((item.appName || "") + " " + (item.desktopEntry || "") + " " + (item.summary || "")).toLowerCase();
+        if (name.indexOf("qq") !== -1 || name.indexOf("tencent") !== -1)
+            return "qq";
+
+        if (name.indexOf("wechat") !== -1 || name.indexOf("微信") !== -1)
+            return "wechat";
+
+        if (name.indexOf("telegram") !== -1)
+            return "telegram";
+
+        if (name.indexOf("discord") !== -1)
+            return "discord";
+
+        return "system";
+    }
+
+    function rebuildNotificationIndex() {
+        var nextMessages = {
+            "system": [],
+            "qq": [],
+            "wechat": [],
+            "telegram": [],
+            "discord": []
+        };
+        var nextCounts = {
+            "system": 0,
+            "qq": 0,
+            "wechat": 0,
+            "telegram": 0,
+            "discord": 0
+        };
+        for (var i = 0; i < NotificationStore.model.count; i++) {
+            var item = NotificationStore.model.get(i);
+            var appId = appIdForRecord(item);
+            if (nextMessages[appId].length >= maxMessagesPerApp)
+                continue;
+
+            var ts = Number(item.timestamp);
+            if (!isFinite(ts) || ts <= 0)
+                ts = Date.now() - i * 1000;
+
+            nextMessages[appId].push({
+                "id": item.id,
+                "title": item.summary || item.appName || "新通知",
+                "body": item.body || "",
+                "timestamp": ts,
+                "appId": appId
+            });
+            nextCounts[appId]++;
         }
-    }
-
-    function requestSave() {
-        saveTimer.restart();
-    }
-
-    Component.onCompleted: {
-        loadProcess.running = true;
-    }
-
-    // 核心 API：给 NotificationManager / UI 组件读写通知数据。
-    function addRealNotification(appId, notifData) {
-        var mockCounts = JSON.parse(JSON.stringify(notifAppCounts));
-        var mockMsgs = JSON.parse(JSON.stringify(notifMessages));
-        if (!mockMsgs[appId]) mockMsgs[appId] = []; 
-        
-        mockMsgs[appId].unshift(notifData);
-        
-        // 超出上限则剔除最旧消息，避免状态无限膨胀。
-        while (mockMsgs[appId].length > maxMessagesPerApp) {
-            mockMsgs[appId].pop();
-        }
-
-        mockCounts[appId] = mockMsgs[appId].length;
-
-        notifMessages = mockMsgs;
-        notifAppCounts = mockCounts;
+        notifMessages = nextMessages;
+        notifAppCounts = nextCounts;
         notifDataChanged();
-        
-        requestSave(); 
     }
 
     function dismissMessage(appId, messageId) {
-        var mockCounts = JSON.parse(JSON.stringify(notifAppCounts));
-        var mockMsgs = JSON.parse(JSON.stringify(notifMessages));
-        
-        if (mockMsgs[appId]) {
-            mockMsgs[appId] = mockMsgs[appId].filter(function(msg) {
-                return msg.id !== messageId;
-            });
-            mockCounts[appId] = mockMsgs[appId].length;
-            
-            notifMessages = mockMsgs; 
-            notifAppCounts = mockCounts; 
-            notifDataChanged();
-            
-            // 某个应用的消息清空后，自动退回通知主视图。
-            if (mockMsgs[appId].length === 0) {
-                notifCurrentView = "main";
-            } 
-            
-            requestSave(); 
-        }
+        var wasLastForApp = !notifAppCounts[appId] || notifAppCounts[appId] <= 1;
+        NotificationStore.removeById(messageId);
+        if (wasLastForApp)
+            notifCurrentView = "main";
+
     }
 
     function getAllMessages() {
@@ -241,7 +204,7 @@ QtObject {
             if (msgs) {
                 for (var i = 0; i < msgs.length; i++) {
                     var msgCopy = JSON.parse(JSON.stringify(msgs[i]));
-                    msgCopy.appId = appId; 
+                    msgCopy.appId = appId;
                     all.push(msgCopy);
                 }
             }
@@ -249,8 +212,19 @@ QtObject {
         all.sort(function(a, b) {
             var tA = a.timestamp || 0;
             var tB = b.timestamp || 0;
-            return tB - tA; 
+            return tB - tA;
         });
         return all;
     }
+
+    Component.onCompleted: rebuildNotificationIndex()
+
+    notificationStoreConnections: Connections {
+        function onCountChanged() {
+            root.rebuildNotificationIndex();
+        }
+
+        target: NotificationStore.model
+    }
+
 }

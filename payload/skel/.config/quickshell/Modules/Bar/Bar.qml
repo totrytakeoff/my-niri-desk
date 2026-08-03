@@ -6,9 +6,10 @@ import QtQuick.Layouts
 import qs.Modules.Bar.Workspaces
 import qs.Modules.Bar.ActiveWindow
 import qs.Modules.Bar.Tray
-import qs.Modules.Bar.PowerButton
 import qs.Modules.Bar.SysMonitor
 import qs.Modules.Bar.QuickSettings
+import qs.Services as Services
+import qs.config
 
 // 顶栏根模块
 // ---------------------------------------------------------------------------
@@ -34,7 +35,7 @@ Variants {
         anchors { left: true; top: true; right: true }
         color: "transparent"
         
-        property real barHeight: 52
+        property real barHeight: Sizes.barWindowHeight
         
         // 顶栏是固定高度，不跟随灵动岛展开/收起而变化。
         implicitHeight: barWindow.barHeight
@@ -43,6 +44,12 @@ Variants {
         exclusiveZone: barHeight
         
         WlrLayershell.layer: WlrLayer.Top
+
+        // Caffeine 通过常驻 Bar surface 向 Niri 注册真正的 idle inhibitor。
+        IdleInhibitor {
+            window: barWindow
+            enabled: Services.Power.caffeineEnabled
+        }
 
         // 内容容器：仅负责左右排版。
         Item {

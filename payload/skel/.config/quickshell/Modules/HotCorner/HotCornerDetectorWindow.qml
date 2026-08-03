@@ -3,9 +3,11 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.config
+import qs.Services
 
 PanelWindow {
     id: root
+    screen: Niri.focusedScreen
     
     WlrLayershell.layer: WlrLayer.Top 
     WlrLayershell.namespace: "qs-hotcorner-bottom-right"
@@ -26,7 +28,7 @@ PanelWindow {
     Timer {
         id: openTimer
         interval: 1000 // 悬浮 1 秒钟打开
-        onTriggered: WidgetState.notifOpen = true
+        onTriggered: WidgetState.openNotifPanelFromHotCorner()
     }
 
     Timer {
@@ -34,8 +36,20 @@ PanelWindow {
         interval: 1000 // 移开 1 秒钟关闭
         onTriggered: {
             // 如果鼠标此时没有移动到通知面板上，才真正关闭
-            if (!WidgetState.notifIsHovered) {
+            if (WidgetState.hotCornerEnabled
+                    && !WidgetState.notifIsHovered
+                    && !WidgetState.notifPinned) {
                 WidgetState.notifOpen = false;
+            }
+        }
+    }
+
+    Connections {
+        target: WidgetState
+        function onHotCornerEnabledChanged() {
+            if (!WidgetState.hotCornerEnabled) {
+                openTimer.stop()
+                closeTimer.stop()
             }
         }
     }
@@ -46,12 +60,15 @@ PanelWindow {
         hoverEnabled: true 
         
         onEntered: {
+            if (!WidgetState.hotCornerEnabled) return;
             closeTimer.stop();
             openTimer.start();
         }
         onExited: {
             openTimer.stop();
-            closeTimer.start();
+            if (WidgetState.hotCornerEnabled && !WidgetState.notifPinned) {
+                closeTimer.start();
+            }
         }
     }
 }

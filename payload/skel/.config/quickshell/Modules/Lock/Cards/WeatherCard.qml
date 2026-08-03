@@ -23,7 +23,8 @@ Rectangle {
     // ================== 原生 JS 数据获取 ==================
     function fetchData() {
         WeatherJS.fetchLocationAndWeather(function(data) {
-            if (!data) {
+            if (!data || !data.current) {
+                root.temp = "--";
                 root.cond = "Error";
                 return;
             }

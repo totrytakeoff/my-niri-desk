@@ -8,7 +8,7 @@ Item {
     id: root
 
     // 获取所有可用的播放器数组
-    readonly property list<MprisPlayer> list: Mpris.players.values
+    readonly property var list: Mpris.players.values
     
     // 保存用户手动指定的播放器
     property var manualActive: null

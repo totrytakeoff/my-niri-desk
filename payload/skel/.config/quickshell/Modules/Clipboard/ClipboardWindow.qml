@@ -4,9 +4,11 @@ import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
 import qs.config
+import qs.Services
 
 PanelWindow {
     id: root
+    screen: Niri.focusedScreen
 
     visible: false
     color: "transparent"

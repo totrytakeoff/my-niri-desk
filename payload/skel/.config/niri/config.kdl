@@ -430,7 +430,12 @@ binds {
     Mod+Escape   hotkey-overlay-title="Toggle Shortcuts Inhibit" allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
     Mod+Shift+E  hotkey-overlay-title="Quit niri"             { quit; }
     Ctrl+Alt+Delete hotkey-overlay-title=null                 { quit; }
-    Mod+Shift+P  hotkey-overlay-title="Power Off Monitors"    { power-off-monitors; }
+    Mod+Shift+P repeat=false allow-inhibiting=false allow-when-locked=true hotkey-overlay-title="主动熄屏 / 唤醒" {
+        spawn "quickshell" "ipc" "-n" "call" "power-policy" "toggleActiveBlank";
+    }
+    Ctrl+Alt+Shift+P repeat=false allow-inhibiting=false allow-when-locked=true hotkey-overlay-title=null {
+        spawn-sh "\"$HOME/.config/my-desk/bin/desk-display-power\" on; quickshell ipc -n call power-policy forceDisplayOn >/dev/null 2>&1 || true";
+    }
 }
 
 debug {

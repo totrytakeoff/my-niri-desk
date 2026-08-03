@@ -12,18 +12,14 @@ Item {
     property alias model: popupList           
     property bool hasNotifs: popupList.count > 0 
     
-    property alias sysHistoryModel: sysHistoryList 
-    property alias appHistoryModel: appHistoryList 
-
     ListModel { id: popupList }
-    ListModel { id: sysHistoryList }
-    ListModel { id: appHistoryList }
 
     NotificationServer {
         id: server
         
         onNotification: (n) => {
-            if (n.desktopEntry === "spotify" || n.desktopEntry.includes("player")) return;
+            const desktopEntry = (n.desktopEntry || "").toLowerCase();
+            if (desktopEntry === "spotify" || desktopEntry.includes("player")) return;
 
             const imApps = [
                 "qq", "com.tencent.qq", "linuxqq",
@@ -67,20 +63,6 @@ Item {
 
             NotificationStore.addRecord(n.id, n.appName, n.summary, n.body, finalImage, n.desktopEntry);
 
-            let mappedAppId = "system";
-            if (appNameLower.includes("qq") || appNameLower.includes("tencent")) mappedAppId = "qq";
-            else if (appNameLower.includes("wechat")) mappedAppId = "wechat";
-            else if (appNameLower.includes("discord")) mappedAppId = "discord";
-            else if (appNameLower.includes("telegram")) mappedAppId = "telegram";
-
-            let uiDetailData = {
-                "id": n.id, 
-                "title": n.summary,
-                "body": n.body,
-                "timestamp": Date.now() 
-            };
-            WidgetState.addRealNotification(mappedAppId, uiDetailData);
-
             let notifData = {
                 "notifId": n.id,
                 "summary": n.summary,
@@ -89,15 +71,9 @@ Item {
                 "time": currentTime
             };
 
-            if (isIMApp) {
-                appHistoryList.insert(0, notifData);
-                if (appHistoryList.count > 20) appHistoryList.remove(20);
-            } else {
-                sysHistoryList.insert(0, notifData);
-                if (sysHistoryList.count > 20) sysHistoryList.remove(20);
-            }
-
             if (!ControlBackend.dndEnabled) {
+                // 相同 freedesktop id 表示替换通知；弹窗队列也保持单份。
+                root.removeByNotifId(n.id);
                 popupList.insert(0, notifData);
                 if (popupList.count > 3) popupList.remove(3);
             }
@@ -113,16 +89,4 @@ Item {
         }
     }
     
-    function removeSysHistory(index) {
-        if (index >= 0 && index < sysHistoryList.count) sysHistoryList.remove(index);
-    }
-
-    function removeAppHistory(index) {
-        if (index >= 0 && index < appHistoryList.count) appHistoryList.remove(index);
-    }
-
-    function clearAllHistory() {
-        sysHistoryList.clear();
-        appHistoryList.clear();
-    }
 }

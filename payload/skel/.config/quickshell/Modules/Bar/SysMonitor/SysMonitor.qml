@@ -11,7 +11,7 @@ Item {
 
     property bool isHovered: mouseArea.containsMouse
     
-    implicitHeight: 36
+    implicitHeight: Sizes.barPillHeight
     
     // 【修复点 1】使用标准的 JavaScript 函数块来处理宽度，彻底避免三元运算符解析崩溃
     implicitWidth: {

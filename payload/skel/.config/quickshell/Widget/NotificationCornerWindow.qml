@@ -1,141 +1,205 @@
+import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
-import qs.config
+import qs.Services
 import qs.Widget.common
+import qs.config
 
 PanelWindow {
     id: root
-    
-    Theme { id: theme }
 
     property int sidebarWidth: 460
-    property int gap: -16 
-    property int gooeyRadius: 48  
+    property int gap: -16
+    property int gooeyRadius: 48
+    property int targetNotifHeight: Math.max(240, Math.min(notifContent.totalHeight, 540))
+    property int currentNotifHeight: targetNotifHeight
 
+    screen: Niri.focusedScreen
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "qs-notification-corner"
     WlrLayershell.keyboardFocus: WidgetState.notifOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
     exclusiveZone: 0
-
-    anchors { right: true; bottom: true }
-    
     implicitWidth: sidebarWidth + 50
     implicitHeight: 750
     color: "transparent"
 
-    property int targetNotifHeight: Math.max(240, Math.min(notifContent.totalHeight, 540))
-    
-    property int currentNotifHeight: targetNotifHeight
-    Behavior on currentNotifHeight { 
-        NumberAnimation { 
-            duration: 600;
-            easing.type: Easing.OutQuint 
-        } 
+    Theme {
+        id: theme
+    }
+
+    anchors {
+        right: true
+        bottom: true
     }
 
     Item {
         id: animController
+
         property int slideOffset: 800
 
         state: WidgetState.notifOpen ? "open" : "closed"
-        
         states: [
-            State { name: "open"; PropertyChanges { target: animController; slideOffset: 0 } },
-            State { name: "closed"; PropertyChanges { target: animController; slideOffset: 800 } }
+            State {
+                name: "open"
+
+                PropertyChanges {
+                    target: animController
+                    slideOffset: 0
+                }
+
+            },
+            State {
+                name: "closed"
+
+                PropertyChanges {
+                    target: animController
+                    slideOffset: 800
+                }
+
+            }
         ]
-        
         transitions: [
             Transition {
-                from: "closed"; to: "open"
-                NumberAnimation { target: animController; property: "slideOffset"; duration: 500; easing.type: Easing.OutBack; easing.overshoot: 0.3 }
+                from: "closed"
+                to: "open"
+
+                NumberAnimation {
+                    target: animController
+                    property: "slideOffset"
+                    duration: 500
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 0.3
+                }
+
             },
             Transition {
-                from: "open"; to: "closed"
-                NumberAnimation { target: animController; property: "slideOffset"; duration: 350; easing.type: Easing.InBack; easing.overshoot: 0.1 }
+                from: "open"
+                to: "closed"
+
+                NumberAnimation {
+                    target: animController
+                    property: "slideOffset"
+                    duration: 350
+                    easing.type: Easing.InBack
+                    easing.overshoot: 0.1
+                }
+
             }
         ]
     }
 
     Item {
         id: hitBoxRegion
+
         x: qsShadow.x
         y: qsShadow.y
         width: qsShadow.width + root.gap
-        height: qsShadow.height + root.gap 
+        height: qsShadow.height + root.gap
     }
-    mask: Region { item: hitBoxRegion }
+
+    Item {
+        id: backgroundEffectRegion
+
+        x: qsShadow.x
+        y: qsShadow.y
+        width: qsShadow.width
+        height: qsShadow.height
+    }
 
     Item {
         id: renderCanvas
-        width: parent.width + 100 
+
+        width: parent.width + 100
         height: parent.height + 100
         x: 0
         y: 0
 
         Item {
             id: rawShapes
+
             anchors.fill: parent
             visible: false
 
             Rectangle {
                 id: qsShadow
+
                 width: root.sidebarWidth
                 height: root.currentNotifHeight
                 x: root.implicitWidth - root.sidebarWidth - root.gap
                 y: (root.implicitHeight - root.currentNotifHeight - root.gap) + animController.slideOffset
                 radius: theme.radius
-                color: "black" 
+                color: "black"
             }
 
             Rectangle {
                 width: 100
                 height: parent.height
-                x: root.implicitWidth 
+                x: root.implicitWidth
                 y: 0
                 color: "black"
-                opacity: WidgetState.notifOpen ? 1.0 : 0.0
-                Behavior on opacity { NumberAnimation { duration: 350; easing.type: Easing.InOutQuad } }
+                opacity: WidgetState.notifOpen ? 1 : 0
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 350
+                        easing.type: Easing.InOutQuad
+                    }
+
+                }
+
             }
 
             Rectangle {
                 width: parent.width
                 height: 100
                 x: 0
-                y: root.implicitHeight 
+                y: root.implicitHeight
                 color: "black"
-                opacity: WidgetState.notifOpen ? 1.0 : 0.0
-                Behavior on opacity { NumberAnimation { duration: 350; easing.type: Easing.InOutQuad } }
+                opacity: WidgetState.notifOpen ? 1 : 0
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 350
+                        easing.type: Easing.InOutQuad
+                    }
+
+                }
+
             }
+
         }
 
         GaussianBlur {
             id: blurredShapes
+
             anchors.fill: parent
             source: rawShapes
             radius: root.gooeyRadius
             samples: 1 + root.gooeyRadius * 2
-            visible: false 
+            visible: false
         }
 
-        Rectangle { 
+        Rectangle {
             id: solidBg
+
             anchors.fill: parent
-            color: theme.background 
-            visible: false 
+            color: theme.glass_panel
+            visible: false
         }
 
         ThresholdMask {
             id: gooeyLayer
+
             anchors.fill: parent
             source: solidBg
             maskSource: blurredShapes
             threshold: 0.51
             spread: 0.02
         }
+
     }
 
     Item {
@@ -156,7 +220,7 @@ PanelWindow {
             height: qsShadow.height
             x: qsShadow.x
             y: qsShadow.y
-            clip: true 
+            clip: true
 
             HoverHandler {
                 onHoveredChanged: {
@@ -164,28 +228,32 @@ PanelWindow {
                     if (hovered) {
                         panelCloseTimer.stop();
                     } else {
-                        if (!WidgetState.notifPinned) {
+                        if (!WidgetState.notifPinned)
                             panelCloseTimer.start();
-                        }
+
                     }
                 }
             }
 
             Timer {
                 id: panelCloseTimer
-                interval: 1000 
+
+                interval: 1000
                 onTriggered: {
-                    if (!WidgetState.notifIsHovered && !WidgetState.notifPinned) {
+                    if (!WidgetState.notifIsHovered && !WidgetState.notifPinned)
                         WidgetState.notifOpen = false;
-                    }
+
                 }
             }
 
-            NotificationContent { 
+            NotificationContent {
                 id: notifContent
-                anchors.fill: parent 
+
+                anchors.fill: parent
             }
+
         }
+
     }
 
     Shortcut {
@@ -196,4 +264,22 @@ PanelWindow {
             WidgetState.notifPinned = false;
         }
     }
+
+    Behavior on currentNotifHeight {
+        NumberAnimation {
+            duration: 600
+            easing.type: Easing.OutQuint
+        }
+
+    }
+
+    BackgroundEffect.blurRegion: Region {
+        item: backgroundEffectRegion
+        radius: theme.radius
+    }
+
+    mask: Region {
+        item: hitBoxRegion
+    }
+
 }

@@ -714,7 +714,7 @@ Item {
 
                             Text {
                                 visible: !!previewPanel.currentItem && previewPanel.currentItem.associatedPath !== ""
-                                text: previewPanel.currentItem ? previewPanel.currentItem.associatedPath : ""
+                                text: previewPanel.currentItem ? (previewPanel.currentItem.associatedPath || "") : ""
                                 color: Colorscheme.on_surface_variant
                                 font.pixelSize: 11
                                 font.family: "JetBrains Mono Nerd Font"

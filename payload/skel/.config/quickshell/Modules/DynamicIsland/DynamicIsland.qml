@@ -273,6 +273,19 @@ Variants {
                 Behavior on height { SpringAnimation { spring: 5.0; mass: 3.6; damping: root.hDamping; epsilon: 0.01 } }
                 Behavior on radius { SpringAnimation { spring: 5.0; mass: 3.6; damping: root.rDamping; epsilon: 0.01 } }
 
+                Connections {
+                    target: WidgetState
+
+                    function onCloseIslandRequested() {
+                        root.showLyrics = false;
+                        root.showTools = false;
+                        root.showAudio = false;
+                        root.showHub = false;
+                        root.showVolume = false;
+                        root.expanded = false;
+                    }
+                }
+
                 IpcHandler {
                     target: "island"
                     

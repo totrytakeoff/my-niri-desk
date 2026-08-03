@@ -2,20 +2,17 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import qs.config
 import qs.Widget.common
+import qs.config
 
 Item {
     id: root
-    Theme { id: theme }
 
     property bool isForeground: WidgetState.leftSidebarOpen && WidgetState.leftSidebarView === "dashboard"
-
     property real cpuValue: 0
     property real ramValue: 0
     property real diskValue: 0
     property real tempValue: 0
-
     property string cpuText: "--"
     property string ramText: "--"
     property string diskText: "--"
@@ -24,171 +21,19 @@ Item {
     property string uptimeText: "Loading..."
     property string osAgeText: "Loading..."
 
-    component CompactMetric : Rectangle {
-        property string icon: ""
-        property string label: ""
-        property string valueText: ""
-        property real ratio: 0
-        property color accent: theme.primary
-
-        Layout.fillWidth: true
-        Layout.preferredHeight: 88
-        radius: 16
-        color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.92)
-        border.width: 1
-        border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.42)
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 14
-            spacing: 10
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-
-                Rectangle {
-                    Layout.preferredWidth: 30
-                    Layout.preferredHeight: 30
-                    radius: 15
-                    color: Qt.rgba(accent.r, accent.g, accent.b, 0.16)
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: icon
-                        font.family: "Material Symbols Outlined"
-                        font.pixelSize: 16
-                        color: accent
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    Text {
-                        text: label
-                        font.pixelSize: 11
-                        color: theme.subtext
-                    }
-                    Text {
-                        text: valueText
-                        font.family: "JetBrains Mono Nerd Font"
-                        font.pixelSize: 17
-                        font.bold: true
-                        color: theme.text
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 6
-                radius: 3
-                color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.18)
-
-                Rectangle {
-                    width: Math.max(8, parent.width * Math.max(0, Math.min(1, ratio)))
-                    height: parent.height
-                    radius: parent.radius
-                    color: accent
-                }
-            }
-        }
-    }
-
-    component DetailChip : Rectangle {
-        property string icon: ""
-        property string label: ""
-        property string valueText: ""
-        property color accent: theme.primary
-
-        Layout.fillWidth: true
-        Layout.preferredHeight: 62
-        radius: 16
-        color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.92)
-        border.width: 1
-        border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.42)
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: 12
-            spacing: 10
-
-            Rectangle {
-                Layout.preferredWidth: 30
-                Layout.preferredHeight: 30
-                radius: 15
-                color: Qt.rgba(accent.r, accent.g, accent.b, 0.16)
-
-                Text {
-                    anchors.centerIn: parent
-                    text: icon
-                    font.family: "Material Symbols Outlined"
-                    font.pixelSize: 16
-                    color: accent
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 1
-
-                Text {
-                    text: label
-                    font.pixelSize: 10
-                    color: theme.subtext
-                }
-                Text {
-                    text: valueText
-                    font.pixelSize: 13
-                    font.bold: true
-                    color: theme.text
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
-            }
-        }
-    }
-
-    component SummaryPill : Rectangle {
-        property string title: ""
-        property string valueText: ""
-        property color accent: theme.primary
-
-        Layout.fillWidth: true
-        Layout.preferredHeight: 56
-        radius: 16
-        color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.18)
-        border.width: 1
-        border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.22)
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 12
-            spacing: 2
-
-            Text {
-                text: title
-                font.pixelSize: 10
-                color: theme.subtext
-            }
-
-            Text {
-                text: valueText
-                font.family: "JetBrains Mono Nerd Font"
-                font.pixelSize: 16
-                font.bold: true
-                color: accent
-            }
-        }
-    }
-
     onIsForegroundChanged: {
         if (isForeground) {
-            if (!monitorProc.running) monitorProc.running = true;
-            if (!detailsProc.running) detailsProc.running = true;
+            if (!monitorProc.running)
+                monitorProc.running = true;
+
+            if (!detailsProc.running)
+                detailsProc.running = true;
+
         }
+    }
+
+    Theme {
+        id: theme
     }
 
     Timer {
@@ -196,7 +41,9 @@ Item {
         running: root.isForeground
         repeat: true
         onTriggered: {
-            if (!monitorProc.running) monitorProc.running = true;
+            if (!monitorProc.running)
+                monitorProc.running = true;
+
         }
     }
 
@@ -205,13 +52,17 @@ Item {
         running: root.isForeground
         repeat: true
         onTriggered: {
-            if (!detailsProc.running) detailsProc.running = true;
+            if (!detailsProc.running)
+                detailsProc.running = true;
+
         }
     }
 
     Process {
         id: monitorProc
+
         command: ["desk-run", "sys-monitor"]
+
         stdout: SplitParser {
             onRead: (data) => {
                 try {
@@ -224,14 +75,18 @@ Item {
                     root.ramText = d.ram.text;
                     root.diskText = d.disk.text;
                     root.tempText = d.temp.text;
-                } catch (e) {}
+                } catch (e) {
+                }
             }
         }
+
     }
 
     Process {
         id: detailsProc
+
         command: ["desk-run", "sys-details"]
+
         stdout: SplitParser {
             onRead: (data) => {
                 try {
@@ -239,9 +94,11 @@ Item {
                     root.chassisText = d.chassis || root.chassisText;
                     root.uptimeText = d.uptime || root.uptimeText;
                     root.osAgeText = d.os_age || root.osAgeText;
-                } catch (e) {}
+                } catch (e) {
+                }
             }
         }
+
     }
 
     Flickable {
@@ -253,6 +110,7 @@ Item {
 
         ColumnLayout {
             id: contentCol
+
             width: parent.width
             spacing: 14
 
@@ -261,12 +119,13 @@ Item {
                 Layout.preferredHeight: headerRow.implicitHeight + 32
                 implicitHeight: headerRow.implicitHeight + 32
                 radius: 18
-                color: Qt.rgba(theme.surface.r, theme.surface.g, theme.surface.b, 0.92)
+                color: theme.glass_card_subtle
                 border.width: 1
-                border.color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.42)
+                border.color: theme.glass_outline_soft
 
                 RowLayout {
                     id: headerRow
+
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: 14
@@ -296,6 +155,7 @@ Item {
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                         }
+
                     }
 
                     Rectangle {
@@ -317,21 +177,43 @@ Item {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                if (!monitorProc.running) monitorProc.running = true;
-                                if (!detailsProc.running) detailsProc.running = true;
+                                if (!monitorProc.running)
+                                    monitorProc.running = true;
+
+                                if (!detailsProc.running)
+                                    detailsProc.running = true;
+
                             }
                         }
+
                     }
+
                 }
+
             }
 
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 10
 
-                SummaryPill { title: "CPU"; valueText: root.cpuText; accent: "#8ab4f8" }
-                SummaryPill { title: "内存"; valueText: root.ramText; accent: "#cba6f7" }
-                SummaryPill { title: "温度"; valueText: root.tempText; accent: "#81c995" }
+                SummaryPill {
+                    title: "CPU"
+                    valueText: root.cpuText
+                    accent: "#8ab4f8"
+                }
+
+                SummaryPill {
+                    title: "内存"
+                    valueText: root.ramText
+                    accent: "#cba6f7"
+                }
+
+                SummaryPill {
+                    title: "温度"
+                    valueText: root.tempText
+                    accent: "#81c995"
+                }
+
             }
 
             GridLayout {
@@ -371,6 +253,7 @@ Item {
                     ratio: root.tempValue
                     accent: "#fcad70"
                 }
+
             }
 
             Text {
@@ -401,6 +284,183 @@ Item {
                 valueText: root.chassisText
                 accent: "#cba6f7"
             }
+
         }
+
     }
+
+    component CompactMetric: Rectangle {
+        property string icon: ""
+        property string label: ""
+        property string valueText: ""
+        property real ratio: 0
+        property color accent: theme.primary
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: 88
+        radius: 16
+        color: theme.glass_card_subtle
+        border.width: 1
+        border.color: theme.glass_outline_soft
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 14
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                Rectangle {
+                    Layout.preferredWidth: 30
+                    Layout.preferredHeight: 30
+                    radius: 15
+                    color: Qt.rgba(accent.r, accent.g, accent.b, 0.16)
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: icon
+                        font.family: "Material Symbols Outlined"
+                        font.pixelSize: 16
+                        color: accent
+                    }
+
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    Text {
+                        text: label
+                        font.pixelSize: 11
+                        color: theme.subtext
+                    }
+
+                    Text {
+                        text: valueText
+                        font.family: "JetBrains Mono Nerd Font"
+                        font.pixelSize: 17
+                        font.bold: true
+                        color: theme.text
+                    }
+
+                }
+
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 6
+                radius: 3
+                color: Qt.rgba(theme.outline.r, theme.outline.g, theme.outline.b, 0.18)
+
+                Rectangle {
+                    width: Math.max(8, parent.width * Math.max(0, Math.min(1, ratio)))
+                    height: parent.height
+                    radius: parent.radius
+                    color: accent
+                }
+
+            }
+
+        }
+
+    }
+
+    component DetailChip: Rectangle {
+        property string icon: ""
+        property string label: ""
+        property string valueText: ""
+        property color accent: theme.primary
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: 62
+        radius: 16
+        color: theme.glass_card_subtle
+        border.width: 1
+        border.color: theme.glass_outline_soft
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 10
+
+            Rectangle {
+                Layout.preferredWidth: 30
+                Layout.preferredHeight: 30
+                radius: 15
+                color: Qt.rgba(accent.r, accent.g, accent.b, 0.16)
+
+                Text {
+                    anchors.centerIn: parent
+                    text: icon
+                    font.family: "Material Symbols Outlined"
+                    font.pixelSize: 16
+                    color: accent
+                }
+
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 1
+
+                Text {
+                    text: label
+                    font.pixelSize: 10
+                    color: theme.subtext
+                }
+
+                Text {
+                    text: valueText
+                    font.pixelSize: 13
+                    font.bold: true
+                    color: theme.text
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+            }
+
+        }
+
+    }
+
+    component SummaryPill: Rectangle {
+        property string title: ""
+        property string valueText: ""
+        property color accent: theme.primary
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: 56
+        radius: 16
+        color: theme.glass_card_subtle
+        border.width: 1
+        border.color: theme.glass_outline_soft
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 2
+
+            Text {
+                text: title
+                font.pixelSize: 10
+                color: theme.subtext
+            }
+
+            Text {
+                text: valueText
+                font.family: "JetBrains Mono Nerd Font"
+                font.pixelSize: 16
+                font.bold: true
+                color: accent
+            }
+
+        }
+
+    }
+
 }
