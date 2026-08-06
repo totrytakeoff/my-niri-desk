@@ -196,6 +196,7 @@ WidgetPanel {
                 required property bool trusted
                 property bool busy: Services.Bluetooth.busyMac === mac
                 property bool highlighted: rowHover.hovered || busy
+                property bool confirmUnpair: false
 
                 width: ListView.view.width
                 height: 70
@@ -206,6 +207,26 @@ WidgetPanel {
 
                 HoverHandler {
                     id: rowHover
+                }
+
+                Timer {
+                    id: unpairConfirmationTimer
+
+                    interval: 3200
+                    repeat: false
+                    onTriggered: deviceRow.confirmUnpair = false
+                }
+
+                onPairedChanged: {
+                    if (!paired)
+                        confirmUnpair = false;
+
+                }
+
+                onBusyChanged: {
+                    if (busy)
+                        confirmUnpair = false;
+
                 }
 
                 RowLayout {
@@ -250,16 +271,17 @@ WidgetPanel {
                     Rectangle {
                         id: actionButton
 
-                        property bool shouldShow: rowHover.hovered || deviceRow.connected || deviceRow.busy
+                        property bool shouldShow: rowHover.hovered || deviceRow.busy
+                        property bool hovered: actionMouse.containsMouse && actionMouse.enabled && !deviceRow.busy
 
                         Layout.preferredWidth: shouldShow ? 76 : 0
                         Layout.preferredHeight: 30
                         radius: 15
                         visible: Layout.preferredWidth > 0
                         opacity: shouldShow ? 1 : 0
-                        color: deviceRow.connected ? theme.primary : (deviceRow.busy ? Qt.alpha(theme.primary, 0.16) : theme.glass_card_hover)
-                        border.width: deviceRow.connected ? 0 : 1
-                        border.color: deviceRow.busy ? Qt.alpha(theme.primary, 0.4) : theme.glass_outline_soft
+                        color: deviceRow.busy ? Qt.alpha(theme.primary, 0.16) : (deviceRow.connected ? (hovered ? Qt.lighter(theme.primary, 1.12) : theme.primary) : (hovered ? Qt.alpha(theme.primary, 0.16) : theme.glass_card_hover))
+                        border.width: deviceRow.connected && !deviceRow.busy ? 0 : 1
+                        border.color: deviceRow.busy || hovered ? Qt.alpha(theme.primary, 0.48) : theme.glass_outline_soft
 
                         RowLayout {
                             anchors.centerIn: parent
@@ -283,15 +305,26 @@ WidgetPanel {
                             }
 
                             Text {
+                                id: actionLabel
+
                                 text: deviceRow.busy ? Services.Bluetooth.busyAction : (deviceRow.connected ? "断开" : (deviceRow.paired ? "连接" : "配对"))
-                                color: deviceRow.connected ? theme.on_primary : (deviceRow.busy ? theme.primary : theme.text)
+                                color: deviceRow.busy ? theme.primary : (deviceRow.connected ? theme.on_primary : (actionButton.hovered ? theme.primary : theme.text))
                                 font.pixelSize: 11
                                 font.bold: true
+
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 140
+                                    }
+
+                                }
                             }
 
                         }
 
                         MouseArea {
+                            id: actionMouse
+
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
@@ -303,6 +336,90 @@ WidgetPanel {
                             NumberAnimation {
                                 duration: 150
                                 easing.type: Easing.OutCubic
+                            }
+
+                        }
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 140
+                            }
+
+                        }
+
+                        Behavior on border.color {
+                            ColorAnimation {
+                                duration: 140
+                            }
+
+                        }
+
+                    }
+
+                    Rectangle {
+                        id: unpairButton
+
+                        property bool shouldShow: deviceRow.paired && !deviceRow.busy && (rowHover.hovered || deviceRow.confirmUnpair)
+
+                        Layout.preferredWidth: shouldShow ? (deviceRow.confirmUnpair ? 92 : 84) : 0
+                        Layout.preferredHeight: 30
+                        radius: 15
+                        visible: Layout.preferredWidth > 0
+                        opacity: shouldShow ? 1 : 0
+                        color: deviceRow.confirmUnpair ? Qt.alpha(theme.error, 0.16) : (unpairMouse.containsMouse ? Qt.alpha(theme.error, 0.1) : "transparent")
+                        border.width: deviceRow.confirmUnpair ? 1 : 0
+                        border.color: Qt.alpha(theme.error, 0.42)
+
+                        RowLayout {
+                            anchors.centerIn: parent
+                            spacing: 5
+
+                            Text {
+                                text: deviceRow.confirmUnpair ? "delete_forever" : "link_off"
+                                font.family: "Material Symbols Outlined"
+                                font.pixelSize: 15
+                                color: deviceRow.confirmUnpair || unpairMouse.containsMouse ? theme.error : theme.subtext
+                            }
+
+                            Text {
+                                text: deviceRow.confirmUnpair ? "确认移除" : "取消配对"
+                                color: deviceRow.confirmUnpair || unpairMouse.containsMouse ? theme.error : theme.subtext
+                                font.pixelSize: 11
+                                font.bold: true
+                            }
+
+                        }
+
+                        MouseArea {
+                            id: unpairMouse
+
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            enabled: Services.Bluetooth.busyMac === "" && !Services.Bluetooth.scanning && !Services.Bluetooth.powerBusy
+                            onClicked: {
+                                if (deviceRow.confirmUnpair) {
+                                    unpairConfirmationTimer.stop();
+                                    deviceRow.confirmUnpair = false;
+                                    Services.Bluetooth.unpairDevice(deviceRow.mac);
+                                } else {
+                                    deviceRow.confirmUnpair = true;
+                                    unpairConfirmationTimer.restart();
+                                }
+                            }
+                        }
+
+                        Behavior on Layout.preferredWidth {
+                            NumberAnimation {
+                                duration: 150
+                                easing.type: Easing.OutCubic
+                            }
+
+                        }
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 140
                             }
 
                         }

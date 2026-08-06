@@ -199,6 +199,16 @@ Singleton {
         pairProcess.running = true;
     }
 
+    function unpairDevice(mac) {
+        if (!root.powered || root.scanning || root.busyMac !== "" || !root.validMac(mac))
+            return ;
+
+        root.busyMac = mac;
+        root.busyAction = "移除中";
+        removeProcess.targetMac = mac;
+        removeProcess.running = true;
+    }
+
     Component.onCompleted: root.refresh()
 
     ListModel {
@@ -371,6 +381,20 @@ Singleton {
             else if (exitCode !== 0)
                 message = "配对或连接失败";
             root.showStatus(message, exitCode !== 0);
+            root.refresh();
+        }
+    }
+
+    Process {
+        id: removeProcess
+
+        property string targetMac: ""
+
+        command: ["bluetoothctl", "remove", targetMac]
+        onExited: (exitCode, exitStatus) => {
+            root.busyMac = "";
+            root.busyAction = "";
+            root.showStatus(exitCode === 0 ? "已取消配对" : "取消配对失败", exitCode !== 0);
             root.refresh();
         }
     }
